@@ -1,0 +1,11 @@
+plugins {
+    id 'java'
+}
+
+sourceCompatibility = 1.9
+
+repositories {
+    mavenCentral()
+}
+
+

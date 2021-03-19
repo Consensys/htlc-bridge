@@ -1,0 +1,6 @@
+rootProject.name = 'htlc-bridge'
+include 'common'
+include 'htlc'
+
+project(":htlc").projectDir = file("contracts/htlc")
+
