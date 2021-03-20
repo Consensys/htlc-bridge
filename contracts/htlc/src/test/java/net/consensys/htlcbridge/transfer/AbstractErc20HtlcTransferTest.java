@@ -15,6 +15,7 @@
 package net.consensys.htlcbridge.transfer;
 
 import net.consensys.htlcbridge.common.AbstractWeb3Test;
+import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.junit.Test;
 
@@ -30,16 +31,29 @@ public class AbstractErc20HtlcTransferTest extends AbstractWeb3Test {
   Erc20HtlcTransfer transferContract;
 
   public static final BigInteger TEST_TIMELOCK = BigInteger.ONE;
+  public static final BigInteger TEST_SUPPLY = BigInteger.valueOf(1000);
 
-  protected void deployContract() throws Exception {
+  protected void deployTransferContract() throws Exception {
     this.transferContract = Erc20HtlcTransfer.deploy(this.web3j, this.tm, this.freeGasProvider, TEST_TIMELOCK).send();
+  }
+
+  protected ERC20PresetFixedSupply deployErc20Contract() throws Exception {
+    String tokenName = "Token1";
+    String tokenSymbol = "TOK1";
+    BigInteger totalSupply = TEST_SUPPLY;
+    String ownerOfSupply = this.credentials.getAddress();
+    return deployErc20Contract(tokenName, tokenSymbol, totalSupply, ownerOfSupply);
+  }
+
+  protected ERC20PresetFixedSupply deployErc20Contract(String tokenName, String tokenSymbol, BigInteger totalSupply, String ownerOfSupply) throws Exception {
+    return ERC20PresetFixedSupply.deploy(this.web3j, this.tm, this.freeGasProvider, tokenName, tokenSymbol, totalSupply, ownerOfSupply).send();
   }
 
 
   @Test
   public void checkDeployment() throws Exception {
     setupWeb3();
-    deployContract();
+    deployTransferContract();
 
     assertEquals(TEST_TIMELOCK, this.transferContract.timeLockPeriod().send());
   }

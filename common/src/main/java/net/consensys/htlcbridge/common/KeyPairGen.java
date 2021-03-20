@@ -42,11 +42,9 @@ public class KeyPairGen {
   public KeyPairGen() {
     // TODO don't create a PRNG each call
     try {
-      final SecureRandom rand = SecureRandom.getInstance("DRBG",
-          DrbgParameters.instantiation(256, RESEED_ONLY, getPersonalizationString()));
       this.keyPairGenerator = KeyPairGenerator.getInstance("EC");
       final ECGenParameterSpec ecGenParameterSpec = new ECGenParameterSpec("secp256k1");
-      this.keyPairGenerator.initialize(ecGenParameterSpec, rand);
+      this.keyPairGenerator.initialize(ecGenParameterSpec, PRNG.privatePRNG);
     } catch (final Exception e) {
       throw new RuntimeException(e);
     }
@@ -63,35 +61,5 @@ public class KeyPairGen {
     final ECPrivateKey privateKey =  (ECPrivateKey) rawKeyPair.getPrivate();
     final BigInteger privateKeyValue = privateKey.getS();
     return privateKeyValue.toString(16);
-  }
-
-
-  // Use a personalisation string to help ensure the entropy going into the PRNG is unique.
-  private static byte[] getPersonalizationString() throws SocketException, BufferOverflowException {
-    final byte[] networkMacs = networkHardwareAddresses();
-    final Runtime runtime = Runtime.getRuntime();
-    final byte[] threadId = Longs.toByteArray(Thread.currentThread().getId());
-    final byte[] availProcessors = Ints.toByteArray(runtime.availableProcessors());
-    final byte[] freeMem = Longs.toByteArray(runtime.freeMemory());
-    final byte[] runtimeMem = Longs.toByteArray(runtime.maxMemory());
-    return Bytes.concat(threadId, availProcessors, freeMem, runtimeMem, networkMacs);
-  }
-
-  private static byte[] networkHardwareAddresses() throws SocketException, BufferOverflowException {
-    final byte[] networkAddresses = new byte[256];
-    final ByteBuffer buffer = ByteBuffer.wrap(networkAddresses);
-
-    final Enumeration<NetworkInterface> networkInterfaces =
-        NetworkInterface.getNetworkInterfaces();
-    if (networkInterfaces != null) {
-      while (networkInterfaces.hasMoreElements()) {
-        final NetworkInterface networkInterface = networkInterfaces.nextElement();
-        final byte[] hardwareAddress = networkInterface.getHardwareAddress();
-        if (hardwareAddress != null) {
-          buffer.put(hardwareAddress);
-        }
-      }
-    }
-    return Arrays.copyOf(networkAddresses, buffer.position());
   }
 }

@@ -1,6 +1,8 @@
 rootProject.name = 'htlc-bridge'
 include 'common'
 include 'htlc'
+include 'openzeppelin'
 
 project(":htlc").projectDir = file("contracts/htlc")
+project(":openzeppelin").projectDir = file("contracts/openzeppelin")
 

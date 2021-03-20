@@ -11,6 +11,7 @@ repositories {
 dependencies {
     //    testCompile project (path: ':common', configuration: 'testArtifacts')
     compile project (path: ':common')
+    compile project (path: ':openzeppelin')
 
     compile group: 'com.google.guava', name: 'guava', version: '14.0'
     compile group: 'org.apache.logging.log4j', name: 'log4j-slf4j-impl', version: '2.12.0'

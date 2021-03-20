@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="net.consensys.htlcbridge.transfer.InvalidTransfers" tests="1" skipped="0" failures="0" errors="0" timestamp="2021-03-19T08:29:26" hostname="Peters-MBP.gateway" time="5.525">
-  <properties/>
-  <testcase name="invalidToken" classname="net.consensys.htlcbridge.transfer.InvalidTransfers" time="5.525"/>
-  <system-out><![CDATA[18:29:31.936 [Test worker] ERROR net.consensys.htlcbridge.transfer.AbstractErc20HtlcTransferTest -  Revert Reason: Token not transferrable
-]]></system-out>
-  <system-err><![CDATA[ERROR StatusLogger No Log4j 2 configuration file found. Using default configuration (logging only errors to the console), or user programmatically provided configurations. Set system property 'log4j2.debug' to show Log4j 2 internal initialization logging. See https://logging.apache.org/log4j/2.x/manual/configuration.html for instructions on how to configure Log4j 2
-]]></system-err>
-</testsuite>

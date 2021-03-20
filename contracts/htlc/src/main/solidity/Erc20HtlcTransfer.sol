@@ -14,7 +14,7 @@
  */
 pragma solidity >=0.8.0;
 
-import "contracts/openzeppelin-tokens/src/main/solidity/token/ERC20/ERC20.sol";
+import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
 
 
 contract Erc20HtlcTransfer {
@@ -69,7 +69,7 @@ contract Erc20HtlcTransfer {
         // A transfer with the commitment can not already exist.
         require(!transferExists(_commitment), "Transfer already exists");
         // The token must be in the list of known tokens.
-        require(isAllowedToken(_tokenContract), "Token not transferrable");
+        require(isAllowedToken(_tokenContract), "Token not transferable");
         // The transfer will fail is _amount is negative, or if adequate allowance hasn't been set-up. 
         if (!ERC20(_tokenContract).transferFrom(msg.sender, address(this), _amount)) {
             revert("transfer failed");
@@ -79,8 +79,7 @@ contract Erc20HtlcTransfer {
 
         transfers[_commitment] = Transfer(msg.sender, _tokenContract, _amount, _commitment, 0x0, timeLock, 0);
 
-        emit TransferInit(_commitment, msg.sender, _tokenContract, _amount, timeLock
-        );
+        emit TransferInit(_commitment, msg.sender, _tokenContract, _amount, timeLock);
     }
 
     function finaliseTransferToOtherBlockchain(bytes32 _commitment, bytes32 _preimage) external {
@@ -97,6 +96,10 @@ contract Erc20HtlcTransfer {
     function refundTransferToOtherBlockchain(bytes32 _commitment) external {
         require(transferExists(_commitment), "Transfer does not exist");
         require(transfers[_commitment].state == OPEN);
+
+        if (!ERC20(transfers[_commitment].tokenContract).transfer(transfers[_commitment].sender, transfers[_commitment].amount)) {
+            revert("refund failed");
+        }
 
         transfers[_commitment].state = REFUNDED;
 
@@ -123,12 +126,16 @@ contract Erc20HtlcTransfer {
         return transfers[_commitment].sender != address(0);
     }
 
+    function transferExpired(bytes32 _commitment) public view returns(bool){
+        return transfers[_commitment].timeLock < block.timestamp;
+    }
+
     function transferState(bytes32 _commitment) public view returns(uint256){
         return transfers[_commitment].state;
     }
 
     function preimageMatchesCommitment(bytes32 _commitment, bytes32 _preimage) public pure returns(bool){
-        return _commitment == sha256(abi.encodePacked(_preimage));
+        return _commitment == keccak256(abi.encodePacked(_preimage));
     }
 
 

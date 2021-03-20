@@ -7,6 +7,7 @@ import org.junit.Test;
 import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.protocol.exceptions.TransactionException;
 
+import static org.junit.Assert.assertEquals;
 
 
 import java.math.BigInteger;
@@ -17,7 +18,7 @@ public class InvalidTransfers extends AbstractErc20HtlcTransferTest {
   @Test
   public void invalidToken() throws Exception {
     setupWeb3();
-    deployContract();
+    deployTransferContract();
 
     // Use the transfer contract's address as a valid address that should fail.
     String invalidTokenContractAddress = this.transferContract.getContractAddress();
@@ -30,11 +31,12 @@ public class InvalidTransfers extends AbstractErc20HtlcTransferTest {
     try {
       TransactionReceipt txR = this.transferContract.newTransferToOtherBlockchain(invalidTokenContractAddress, amount, commitment).send();
     } catch (TransactionException ex) {
-      LOG.error(" Revert Reason: {}", RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason()));
-
+      String revertReason = RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason());
+      assertEquals("Token not transferable", revertReason);
     }
 
   }
+
 
 
 // tranfer exists

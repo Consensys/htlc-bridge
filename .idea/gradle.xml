@@ -13,6 +13,7 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/common" />
             <option value="$PROJECT_DIR$/contracts/htlc" />
+            <option value="$PROJECT_DIR$/contracts/openzeppelin" />
           </set>
         </option>
         <option name="useQualifiedModuleNames" value="true" />
