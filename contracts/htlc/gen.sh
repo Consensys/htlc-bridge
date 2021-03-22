@@ -15,12 +15,12 @@ WEB3J=web3j
 
 # compiling one file also compiles its dependendencies. We use overwrite to avoid the related warnings.
 solc $CONTRACTSDIR/Erc20HtlcTransfer.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
+solc $CONTRACTSDIR/Erc20HtlcReceiver.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
 #solc $TESTCONTRACTSDIR/Erc20HtlcTransferTest.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
 # ls -al $BUILDDIR
 
 $WEB3J solidity generate -a=$BUILDDIR/Erc20HtlcTransfer.abi -b=$BUILDDIR/Erc20HtlcTransfer.bin -o=$OUTPUTDIR -p=$PACKAGE
-#$WEB3J solidity generate -a=$BUILDDIR/LockableStorage.abi -b=$BUILDDIR/LockableStorage.bin -o=$OUTPUTDIR -p=$PACKAGE
-#$WEB3J solidity generate -a=$BUILDDIR/MockCbcForLockableStorageTest.abi -b=$BUILDDIR/MockCbcForLockableStorageTest.bin -o=$TESTOUTPUTDIR -p=$PACKAGE
+$WEB3J solidity generate -a=$BUILDDIR/Erc20HtlcReceiver.abi -b=$BUILDDIR/Erc20HtlcReceiver.bin -o=$OUTPUTDIR -p=$PACKAGE
 #$WEB3J solidity generate -a=$BUILDDIR/TestLockableStorageWrapper.abi -b=$BUILDDIR/TestLockableStorageWrapper.bin -o=$TESTOUTPUTDIR -p=$PACKAGE
 
 

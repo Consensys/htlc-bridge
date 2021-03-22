@@ -30,7 +30,9 @@ import static org.junit.Assert.assertEquals;
 public class AbstractErc20HtlcTransferTest extends AbstractWeb3Test {
   Erc20HtlcTransfer transferContract;
 
-  public static final BigInteger TEST_TIMELOCK = BigInteger.ONE;
+  public static final int BLOCK_PERIOD_OF_TEST_BLOCKCHAIN = 2;
+  public static final int TEST_TIMELOCK_INT = 1;
+  public static final BigInteger TEST_TIMELOCK = BigInteger.valueOf(TEST_TIMELOCK_INT);
   public static final BigInteger TEST_SUPPLY = BigInteger.valueOf(1000);
 
   protected void deployTransferContract() throws Exception {

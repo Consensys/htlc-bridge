@@ -85,7 +85,7 @@ contract Erc20HtlcTransfer {
     function finaliseTransferToOtherBlockchain(bytes32 _commitment, bytes32 _preimage) external {
         require(transferExists(_commitment), "Transfer does not exist");
         require(preimageMatchesCommitment(_commitment, _preimage), "Preimage does not match commitment");
-        require(transfers[_commitment].state == OPEN);
+        require(transfers[_commitment].state == OPEN, "Transfer not in open state");
 
         transfers[_commitment].preimage = _preimage;
         transfers[_commitment].state = FINALILISED;
@@ -95,7 +95,8 @@ contract Erc20HtlcTransfer {
 
     function refundTransferToOtherBlockchain(bytes32 _commitment) external {
         require(transferExists(_commitment), "Transfer does not exist");
-        require(transfers[_commitment].state == OPEN);
+        require(transfers[_commitment].state == OPEN, "Transfer not in open state");
+        require(transfers[_commitment].timeLock < block.timestamp, "Transaction has not yet timed-out");
 
         if (!ERC20(transfers[_commitment].tokenContract).transfer(transfers[_commitment].sender, transfers[_commitment].amount)) {
             revert("refund failed");
