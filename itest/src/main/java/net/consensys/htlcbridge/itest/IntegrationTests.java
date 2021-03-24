@@ -400,6 +400,10 @@ public class IntegrationTests {
     String sourceTransferContract = fromMainNetToSidechain ? transferMainNet : transferSidechain;
     int sourceBlockPeriod = fromMainNetToSidechain ? MAINNET_BLOCK_PERIOD : SIDECHAIN_BLOCK_PERIOD;
     int sourceConfirmations = fromMainNetToSidechain ? MAINNET_CONFIRMATIONS : SIDECHAIN_CONFIRMATIONS;
+    int sourceRetries = 5;
+    ContractGasProvider sourceGasProvider = new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
+    long sourceBcId = fromMainNetToSidechain ? Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID) : Integer.valueOf(MAINNET_BLOCKCHAIN_ID);
+
 
     String destBcUri = fromMainNetToSidechain ? SIDECHAIN_BLOCKCHAIN_URI : MAINNET_BLOCKCHAIN_URI;
     String destReceiverContract = fromMainNetToSidechain ? receiverSidechain : receiverMainNet;
@@ -409,9 +413,11 @@ public class IntegrationTests {
     ContractGasProvider destGasProvider = new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
     long destBcId = fromMainNetToSidechain ? Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID) : Integer.valueOf(MAINNET_BLOCKCHAIN_ID);
 
-    Relayer relayer = new Relayer(sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
-      destBcUri, destReceiverContract, destBlockPeriod, destConfirmations,
-      destRetries, destBcId, relayerPKey, destGasProvider);
+    Relayer relayer = new Relayer(
+        sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
+        sourceRetries, sourceBcId, relayerPKey, sourceGasProvider,
+        destBcUri, destReceiverContract, destBlockPeriod, destConfirmations,
+        destRetries, destBcId, relayerPKey, destGasProvider);
     this.vertx.deployVerticle(relayer);
     return relayer;
   }

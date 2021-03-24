@@ -14,46 +14,40 @@ import org.web3j.tx.gas.ContractGasProvider;
 public class Relayer extends AbstractVerticle {
   private static final Logger LOG = LogManager.getLogger(Relayer.class);
 
-  public static final String SOURCE_BLOCKCHAIN_URI = "http://127.0.0.1:8400/";
-  public static final int SOURCE_BLOCK_PERIOD = 4000;
-  public static final int SOURCE_CONFIRMATIONS = 3;
-  public static final String SOURCE_TRANSFER_CONTRACT = "0x4c869fd21ab76638b881fb42a3964d0c239c3044";
-
-  public static final String DESTINATION_BLOCKCHAIN_URI = "http://127.0.0.1:8400/";
-  public static final int DESTINATION_BLOCK_PERIOD = 2000;
-  public static final int DESTINATION_CONFIRMATIONS = 1;
-  public static final String DESTINATION_RECEIVER_CONTRACT = "";
-
   public static final int API_PORT = 8080;
 
-
-
-
   RestAPI api;
-  SourceBlockchainObserver sourceBlockchainObserver;
 
+  SourceBlockchainObserver sourceBlockchainObserver;
   int sourceBlockPeriod;
+  DestinationBlockchainObserver destBlockchainObserver;
+  int destBlockPeriod;
 
   public Relayer() {
-    this(SOURCE_BLOCKCHAIN_URI, SOURCE_TRANSFER_CONTRACT, SOURCE_BLOCK_PERIOD, SOURCE_CONFIRMATIONS,
-      DESTINATION_BLOCKCHAIN_URI, DESTINATION_RECEIVER_CONTRACT, DESTINATION_BLOCK_PERIOD,
-        DESTINATION_CONFIRMATIONS,
-        5, 40, null, null);
-
+    throw new Error("Needs to read configuration from a file!");
   }
 
   // TODO work out where relayer is up to.
   // TODO auto-share around the relaying of blocks in a redundant way.
 
   public Relayer(String sourceBcUri, String sourceTransferContract, int sourceBlockPeriod, int sourceConfirmations,
+                 int sourceRetries, long sourceBcId, String sourceRelayerPKey, ContractGasProvider sourceGasProvider,
                  String destBcUri, String destTransferContract, int destBlockPeriod, int destConfirmations,
-                 int destRetries, long destBcId, String destRelayerPKey, ContractGasProvider gasProvider) {
+                 int destRetries, long destBcId, String destRelayerPKey, ContractGasProvider destGasProvider) {
     this.api = new RestAPI(this.vertx, API_PORT);
     this.sourceBlockchainObserver = new SourceBlockchainObserver(
         sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
+        sourceRelayerPKey, sourceRetries, sourceBcId, sourceGasProvider,
         destBcUri, destTransferContract, destBlockPeriod, destConfirmations,
-        destRelayerPKey, destRetries, destBcId, gasProvider);
+        destRelayerPKey, destRetries, destBcId, destGasProvider);
     this.sourceBlockPeriod = sourceBlockPeriod;
+
+    this.destBlockchainObserver = new DestinationBlockchainObserver(
+        sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
+        sourceRelayerPKey, sourceRetries, sourceBcId, sourceGasProvider,
+        destBcUri, destTransferContract, destBlockPeriod, destConfirmations,
+        destRelayerPKey, destRetries, destBcId, destGasProvider);
+    this.destBlockPeriod = destBlockPeriod;
   }
 
 
@@ -63,6 +57,11 @@ public class Relayer extends AbstractVerticle {
     this.vertx.setPeriodic(this.sourceBlockPeriod, counter -> {
       this.sourceBlockchainObserver.checkNewBlock();
     });
+
+    this.vertx.setPeriodic(this.destBlockPeriod, counter -> {
+      this.destBlockchainObserver.checkNewBlock();
+    });
+
 
 //    vertx.createHttpServer()
 //        .requestHandler(req -> {

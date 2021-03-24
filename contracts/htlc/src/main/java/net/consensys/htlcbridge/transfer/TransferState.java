@@ -6,7 +6,8 @@ public enum TransferState {
   OPEN(0),
   REFUNDED(1),
   FINALILISED(2),
-  INVALID(3);
+  TIMEDOUT(3),
+  INVALID(4);
 
   int state;
 
@@ -23,6 +24,8 @@ public enum TransferState {
         return REFUNDED;
       case 2:
         return FINALILISED;
+      case 3:
+        return TIMEDOUT;
       default:
         return INVALID;
     }

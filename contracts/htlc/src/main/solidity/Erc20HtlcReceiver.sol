@@ -109,7 +109,7 @@ contract Erc20HtlcReceiver {
         transfers[_commitment].preimage = _preimage;
         transfers[_commitment].state = FINALILISED;
 
-        emit TransferCompleted(_commitment);
+        emit TransferCompleted(_commitment, _preimage);
     }
 
     function getInfo(bytes32 _commitment) public view returns
@@ -154,7 +154,7 @@ contract Erc20HtlcReceiver {
         uint256 amount,
         uint256 timeLock
     );
-    event TransferCompleted(bytes32 indexed commitment);
+    event TransferCompleted(bytes32 indexed commitment, bytes32 preimage);
     event TransferRefunded(bytes32 indexed commitment);
 
     event AllowedTokenAdded(address otherBlockchainTokenContract, address thisBlockchainTokenContract);

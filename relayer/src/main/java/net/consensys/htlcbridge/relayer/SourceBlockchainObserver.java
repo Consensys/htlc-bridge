@@ -2,6 +2,8 @@ package net.consensys.htlcbridge.relayer;
 
 import io.reactivex.Flowable;
 import net.consensys.htlcbridge.common.RevertReason;
+import net.consensys.htlcbridge.relayer.data.DataStore;
+import net.consensys.htlcbridge.relayer.data.TransferInformation;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
@@ -30,10 +32,13 @@ public class SourceBlockchainObserver {
   Web3j sourceWeb3j;
   Web3j destWeb3j;
 
+  DataStore dataStore = DataStore.getInstance();
+
   long lastBlockChecked = -1;
 
   public SourceBlockchainObserver(
       String sourceUri, String transferContractAddress, int sourceBlockPeriod, int sourceConfirmations,
+      String sourcePKey, int sourceRetries, long sourceBcId, ContractGasProvider sourceGasProvider,
       String destUri, String receiverContractAddress, int destBlockPeriod, int destConfirmations, String destPKey,
       int destRetries, long destBcId, ContractGasProvider destGasProvider) {
     this.sourceConfirmations = sourceConfirmations;
@@ -45,7 +50,7 @@ public class SourceBlockchainObserver {
     TransactionManager destTm = new RawTransactionManager(this.destWeb3j, relayerCredentials, destBcId, destRetries, destBlockPeriod);
 
     this.transferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, empty, null);
-    this.receiverContract = Erc20HtlcReceiver.load(receiverContractAddress, sourceWeb3j, destTm, destGasProvider);
+    this.receiverContract = Erc20HtlcReceiver.load(receiverContractAddress, destWeb3j, destTm, destGasProvider);
   }
 
 
@@ -78,6 +83,12 @@ public class SourceBlockchainObserver {
         @Override
         public void accept(Erc20HtlcTransfer.TransferInitEventResponse event) throws Exception {
           LOG.info("Sender: {} , Token Contract: {}, Amount: {}, TimeLock: {}", event.sender, event.tokenContract, event.amount, event.timeLock);
+          // TODO pass in direction.
+          TransferInformation info = new TransferInformation(
+              true, event.commitment, event.sender, event.tokenContract, event.amount, event.timeLock);
+          // TODO check that the commitment doesn't exist in database. TODO what to do if it does?
+          dataStore.addOrReplace(info);
+
           // TODO check that amount > 0
           // TODO check that timelock hasn't expired.
           try {
