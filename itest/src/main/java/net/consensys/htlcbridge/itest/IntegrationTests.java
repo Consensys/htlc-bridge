@@ -42,8 +42,8 @@ public class IntegrationTests {
   public static final int MAINNET_BLOCK_PERIOD = 4000;
   public static final int MAINNET_CONFIRMATIONS = 3;
 
-  public static final String SIDECHAIN_BLOCKCHAIN_URI = "http://127.0.0.1:8400/";
-  public static final String SIDECHAIN_BLOCKCHAIN_ID = "40";
+  public static final String SIDECHAIN_BLOCKCHAIN_URI = "http://127.0.0.1:8310/";
+  public static final String SIDECHAIN_BLOCKCHAIN_ID = "31";
   public static final int SIDECHAIN_BLOCK_PERIOD = 2000;
   public static final int SIDECHAIN_CONFIRMATIONS = 1;
 
@@ -380,7 +380,7 @@ public class IntegrationTests {
     int sourceConfirmations = fromMainNetToSidechain ? MAINNET_CONFIRMATIONS : SIDECHAIN_CONFIRMATIONS;
     int sourceRetries = 5;
     ContractGasProvider sourceGasProvider = new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
-    long sourceBcId = fromMainNetToSidechain ? Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID) : Integer.valueOf(MAINNET_BLOCKCHAIN_ID);
+    long sourceBcId = fromMainNetToSidechain ? Integer.valueOf(MAINNET_BLOCKCHAIN_ID) : Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID);
 
 
     String destBcUri = fromMainNetToSidechain ? SIDECHAIN_BLOCKCHAIN_URI : MAINNET_BLOCKCHAIN_URI;
