@@ -9,6 +9,7 @@ import io.vertx.ext.web.Router;
 import net.consensys.htlcbridge.relayer.api.RestAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.web3j.tx.gas.ContractGasProvider;
 
 public class Relayer extends AbstractVerticle {
   private static final Logger LOG = LogManager.getLogger(Relayer.class);
@@ -31,18 +32,35 @@ public class Relayer extends AbstractVerticle {
   RestAPI api;
   SourceBlockchainObserver sourceBlockchainObserver;
 
+  int sourceBlockPeriod;
 
   public Relayer() {
-    this.api = new RestAPI(this.vertx, API_PORT);
+    this(SOURCE_BLOCKCHAIN_URI, SOURCE_TRANSFER_CONTRACT, SOURCE_BLOCK_PERIOD, SOURCE_CONFIRMATIONS,
+      DESTINATION_BLOCKCHAIN_URI, DESTINATION_RECEIVER_CONTRACT, DESTINATION_BLOCK_PERIOD,
+        DESTINATION_CONFIRMATIONS,
+        5, 40, null, null);
 
-    this.sourceBlockchainObserver = new SourceBlockchainObserver(SOURCE_BLOCKCHAIN_URI, SOURCE_TRANSFER_CONTRACT, SOURCE_BLOCK_PERIOD, SOURCE_CONFIRMATIONS);
+  }
+
+  // TODO work out where relayer is up to.
+  // TODO auto-share around the relaying of blocks in a redundant way.
+
+  public Relayer(String sourceBcUri, String sourceTransferContract, int sourceBlockPeriod, int sourceConfirmations,
+                 String destBcUri, String destTransferContract, int destBlockPeriod, int destConfirmations,
+                 int destRetries, long destBcId, String destRelayerPKey, ContractGasProvider gasProvider) {
+    this.api = new RestAPI(this.vertx, API_PORT);
+    this.sourceBlockchainObserver = new SourceBlockchainObserver(
+        sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
+        destBcUri, destTransferContract, destBlockPeriod, destConfirmations,
+        destRelayerPKey, destRetries, destBcId, gasProvider);
+    this.sourceBlockPeriod = sourceBlockPeriod;
   }
 
 
   @Override
   public void start() {
     LOG.info("Started");
-    this.vertx.setPeriodic(SOURCE_BLOCK_PERIOD, counter -> {
+    this.vertx.setPeriodic(this.sourceBlockPeriod, counter -> {
       this.sourceBlockchainObserver.checkNewBlock();
     });
 

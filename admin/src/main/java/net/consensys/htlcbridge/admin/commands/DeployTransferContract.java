@@ -18,10 +18,10 @@ import java.math.BigInteger;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public class DeployTransferContract {
-  private static final Logger LOG = LogManager.getLogger(Admin.class);
+  private static final Logger LOG = LogManager.getLogger(DeployTransferContract.class);
 
 
-  public static String deploy(String[] args) {
+  public static String deploy(String[] args) throws Exception {
     LOG.info("Deploy Transfer Contract");
 
     if (args.length != 6) {
@@ -64,8 +64,8 @@ public class DeployTransferContract {
       return transferContract.getContractAddress();
     }
     catch (Exception ex) {
-      LOG.error("Exception thrown while deploying contract: {}", ex.getMessage());
-      return null;
+      LOG.error("Exception thrown while deploying transfer contract: {}", ex.getMessage());
+      throw ex;
     }
   }
 }

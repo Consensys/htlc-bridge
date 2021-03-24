@@ -21,6 +21,7 @@ contract Erc20HtlcTransfer {
     uint256 constant OPEN = 0;
     uint256 constant REFUNDED = 1;
     uint256 constant FINALILISED = 2;
+    uint256 constant TIMEDOUT = 3;
 
 
     uint256 public timeLockPeriod;
@@ -96,7 +97,7 @@ contract Erc20HtlcTransfer {
     function refundTransferToOtherBlockchain(bytes32 _commitment) external {
         require(transferExists(_commitment), "Transfer does not exist");
         require(transfers[_commitment].state == OPEN, "Transfer not in open state");
-        require(transfers[_commitment].timeLock < block.timestamp, "Transaction has not yet timed-out");
+        require(transferExpired(_commitment), "Transaction has not yet timed-out");
 
         if (!ERC20(transfers[_commitment].tokenContract).transfer(transfers[_commitment].sender, transfers[_commitment].amount)) {
             revert("refund failed");
@@ -132,6 +133,9 @@ contract Erc20HtlcTransfer {
     }
 
     function transferState(bytes32 _commitment) public view returns(uint256){
+        if (transferExpired(_commitment)) {
+            return TIMEDOUT;
+        }
         return transfers[_commitment].state;
     }
 

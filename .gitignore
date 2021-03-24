@@ -21,3 +21,26 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+
+.gradle/
+.idea/
+.loadpath
+.metadata
+.prefs
+.project
+.recommenders/
+.settings
+.springBeans
+.vertx
+bin/
+local.properties
+target/
+tmp/
+build/
+out/
+site/
+/kubernetes/reports/
+/kubernetes/besu-*.tar.gz
+
+
+**/node_modules

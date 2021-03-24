@@ -20,6 +20,7 @@ import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
 contract Erc20HtlcReceiver {
     uint256 constant OPEN = 0;
     uint256 constant FINALILISED = 2;
+    uint256 constant TIMEDOUT = 3;
 
 
     uint256 public timeLockPeriod;
@@ -30,7 +31,7 @@ contract Erc20HtlcReceiver {
 
     struct Transfer {
         address relayer;
-        address receiver;
+        address recipient;
         address otherBlockchainTokenContract;
         uint256 amount;
         bytes32 commitment;
@@ -80,7 +81,7 @@ contract Erc20HtlcReceiver {
      * _commitment ****MUST**** be based on a unique random preimage.
      *
      */
-    function newTransferFromOtherBlockchain(address _otherBlockchainTokenContract, address _receiver, uint256 _amount, bytes32 _commitment) onlyAuthorisedRelayer() external {
+    function newTransferFromOtherBlockchain(address _otherBlockchainTokenContract, address _recipient, uint256 _amount, bytes32 _commitment) onlyAuthorisedRelayer() external {
         // A transfer with the commitment can not already exist.
         require(!transferExists(_commitment), "Transfer already exists");
         // The token must be in the list of known tokens.
@@ -88,20 +89,20 @@ contract Erc20HtlcReceiver {
 
         uint256 timeLock = block.timestamp + timeLockPeriod;
 
-        transfers[_commitment] = Transfer(msg.sender, _receiver, _otherBlockchainTokenContract, _amount, _commitment, 0x0, timeLock, 0);
+        transfers[_commitment] = Transfer(msg.sender, _recipient, _otherBlockchainTokenContract, _amount, _commitment, 0x0, timeLock, 0);
 
-        emit TransferInit(_commitment, msg.sender, _receiver, _otherBlockchainTokenContract, _amount, timeLock);
+        emit TransferInit(_commitment, msg.sender, _recipient, _otherBlockchainTokenContract, _amount, timeLock);
     }
 
     function finaliseTransferFromOtherBlockchain(bytes32 _commitment, bytes32 _preimage) external {
         require(transferExists(_commitment), "Transfer does not exist");
         require(preimageMatchesCommitment(_commitment, _preimage), "Preimage does not match commitment");
         require(transfers[_commitment].state == OPEN, "Transfer not in open state");
-        require(transfers[_commitment].timeLock < block.timestamp, "Transfer timed-out");
+        require(!transferExpired(_commitment), "Transfer timed-out");
 
         address otherBlockchainTokenContract = transfers[_commitment].otherBlockchainTokenContract;
         address thisBlockchainTokenContract = allowedTokens[otherBlockchainTokenContract];
-        if (!ERC20(thisBlockchainTokenContract).transfer(transfers[_commitment].receiver, transfers[_commitment].amount)) {
+        if (!ERC20(thisBlockchainTokenContract).transfer(transfers[_commitment].recipient, transfers[_commitment].amount)) {
             revert("tranfer failed");
         }
 
@@ -116,7 +117,7 @@ contract Erc20HtlcReceiver {
         require(transferExists(_commitment), "Transfer does not exist");
 
         Transfer storage t = transfers[_commitment];
-        return (t.relayer, t.receiver, t.otherBlockchainTokenContract, t.amount,  t.preimage, t.timeLock, t.state);
+        return (t.relayer, t.recipient, t.otherBlockchainTokenContract, t.amount,  t.preimage, t.timeLock, t.state);
     }
 
 
@@ -134,6 +135,9 @@ contract Erc20HtlcReceiver {
     }
 
     function transferState(bytes32 _commitment) public view returns(uint256){
+        if (transferExpired(_commitment)) {
+            return TIMEDOUT;
+        }
         return transfers[_commitment].state;
     }
 
@@ -145,7 +149,7 @@ contract Erc20HtlcReceiver {
     event TransferInit(
         bytes32 indexed commitment,
         address indexed relayer,
-        address indexed receiver,
+        address indexed recipient,
         address tokenContract,
         uint256 amount,
         uint256 timeLock

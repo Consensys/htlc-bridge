@@ -11,12 +11,13 @@ repositories {
 }
 
 dependencies {
-    testCompile group: 'junit', name: 'junit', version: '4.12'
+    compile group: 'junit', name: 'junit', version: '4.12'
 
     compile project (path: ':common')
     compile project (path: ':openzeppelin')
     compile project (path: ':htlc')
     compile project (path: ':admin')
+    compile project (path: ':relayer')
 
 
     compile group: 'com.google.guava', name: 'guava', version: '14.0'
@@ -25,5 +26,6 @@ dependencies {
     compile group: 'org.apache.logging.log4j', name: 'log4j-core', version: '2.12.0'
 
     compile ('org.web3j:core:4.6.3')
+    compile 'io.vertx:vertx-core:4.0.3'
 
 }

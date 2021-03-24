@@ -2,7 +2,7 @@ package net.consensys.htlcbridge.admin.commands;
 
 import net.consensys.htlcbridge.admin.Admin;
 import net.consensys.htlcbridge.common.KeyPairGen;
-import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
+import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -18,29 +18,34 @@ import org.web3j.tx.gas.StaticGasProvider;
 import java.math.BigInteger;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class DeployERC20Contract {
-  private static final Logger LOG = LogManager.getLogger(DeployERC20Contract.class);
+public class DeployReceiverContract {
+  private static final Logger LOG = LogManager.getLogger(DeployReceiverContract.class);
 
 
   public static String deploy(String[] args) throws Exception {
-    LOG.info("Deploy ERC20 Contract");
+    LOG.info("Deploy Receiver Contract");
 
-    if (args.length != 8) {
-      Admin.showHelp();
-      return null;
+    if (args.length != 6) {
+      LOG.info("Using defaults while testing!");
+      args = new String[]{"ignored",
+          "http://127.0.0.1:8400/",
+          "40",
+          new KeyPairGen().generateKeyPairGetPrivateKey(),
+          "2000",
+          "86400"}; //24 * 60 * 60 = 86400
+//      Admin.showHelp();
+//      return;
     }
     String blockchanUri = args[1];
     String blockchainIdStr = args[2];
     String privateKey = args[3];
     String blockPeriod = args[4];
-    String totalSupplyStr = args[5];
-    String tokenName = args[6];
-    String tokenSymbol = args[7];
+    String timeLockStr = args[5];
 
     long bcId = Long.parseLong(blockchainIdStr);
     int pollingInterval = Integer.parseInt(blockPeriod);
     final int RETRY = 5;
-    BigInteger totalSupply = new BigInteger(totalSupplyStr);
+    BigInteger timeLock = new BigInteger(timeLockStr);
 
     Web3j web3j;
     TransactionManager tm;
@@ -53,17 +58,14 @@ public class DeployERC20Contract {
     web3j = Web3j.build(new HttpService(blockchanUri), pollingInterval, new ScheduledThreadPoolExecutor(5));
     tm = new RawTransactionManager(web3j, credentials, bcId, RETRY, pollingInterval);
 
-    String ownerOfSupply = credentials.getAddress();
-
-
     try {
-      ERC20PresetFixedSupply erc20 = ERC20PresetFixedSupply.deploy(web3j, tm, freeGasProvider,
-        tokenName, tokenSymbol, totalSupply, ownerOfSupply).send();
-      LOG.info("Successfully deployed ERC20 contract to address: {}", erc20.getContractAddress());
-      return erc20.getContractAddress();
+      Erc20HtlcReceiver receiverContract = Erc20HtlcReceiver.deploy(web3j, tm, freeGasProvider, timeLock).send();
+
+      LOG.info("Successfully deployed Receiver contract to address: {}", receiverContract.getContractAddress());
+      return receiverContract.getContractAddress();
     }
     catch (Exception ex) {
-      LOG.error("Exception while deploying ERC20 contract: {}", ex.getMessage());
+      LOG.error("Exception thrown while deploying receiver contract: {}", ex.getMessage());
       throw ex;
     }
   }

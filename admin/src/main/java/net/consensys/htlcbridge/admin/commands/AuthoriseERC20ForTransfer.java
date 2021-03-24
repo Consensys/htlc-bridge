@@ -1,13 +1,13 @@
 package net.consensys.htlcbridge.admin.commands;
 
 import net.consensys.htlcbridge.admin.Admin;
-import net.consensys.htlcbridge.common.KeyPairGen;
-import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
+import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
 import org.web3j.protocol.http.HttpService;
 import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
@@ -18,29 +18,27 @@ import org.web3j.tx.gas.StaticGasProvider;
 import java.math.BigInteger;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class DeployERC20Contract {
-  private static final Logger LOG = LogManager.getLogger(DeployERC20Contract.class);
+public class AuthoriseERC20ForTransfer {
+  private static final Logger LOG = LogManager.getLogger(AuthoriseERC20ForTransfer.class);
 
 
-  public static String deploy(String[] args) throws Exception {
-    LOG.info("Deploy ERC20 Contract");
+  public static void authorise(String[] args) throws Exception {
+    LOG.info("Authorise ERC20 Contract on Transfer");
 
-    if (args.length != 8) {
+    if (args.length != 7) {
       Admin.showHelp();
-      return null;
+      return;
     }
     String blockchanUri = args[1];
     String blockchainIdStr = args[2];
     String privateKey = args[3];
     String blockPeriod = args[4];
-    String totalSupplyStr = args[5];
-    String tokenName = args[6];
-    String tokenSymbol = args[7];
+    String receiverContractAddress = args[5];
+    String localErc20ContractAddress = args[6];
 
     long bcId = Long.parseLong(blockchainIdStr);
     int pollingInterval = Integer.parseInt(blockPeriod);
     final int RETRY = 5;
-    BigInteger totalSupply = new BigInteger(totalSupplyStr);
 
     Web3j web3j;
     TransactionManager tm;
@@ -53,17 +51,15 @@ public class DeployERC20Contract {
     web3j = Web3j.build(new HttpService(blockchanUri), pollingInterval, new ScheduledThreadPoolExecutor(5));
     tm = new RawTransactionManager(web3j, credentials, bcId, RETRY, pollingInterval);
 
-    String ownerOfSupply = credentials.getAddress();
-
-
     try {
-      ERC20PresetFixedSupply erc20 = ERC20PresetFixedSupply.deploy(web3j, tm, freeGasProvider,
-        tokenName, tokenSymbol, totalSupply, ownerOfSupply).send();
-      LOG.info("Successfully deployed ERC20 contract to address: {}", erc20.getContractAddress());
-      return erc20.getContractAddress();
+      Erc20HtlcTransfer transfer = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
+      TransactionReceipt txr = transfer.addAllowedToken(localErc20ContractAddress).send();
+      if (!txr.isStatusOK() ) {
+        throw new Exception("Unknown error processing request to authorise token contract in Transfer");
+      }
     }
     catch (Exception ex) {
-      LOG.error("Exception while deploying ERC20 contract: {}", ex.getMessage());
+      LOG.error("Exception while authorising token contract in Transfer: {}", ex.getMessage());
       throw ex;
     }
   }

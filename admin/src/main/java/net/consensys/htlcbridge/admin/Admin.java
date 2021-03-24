@@ -1,7 +1,8 @@
 package net.consensys.htlcbridge.admin;
 
+import net.consensys.htlcbridge.admin.commands.DeployERC20Contract;
+import net.consensys.htlcbridge.admin.commands.DeployReceiverContract;
 import net.consensys.htlcbridge.admin.commands.DeployTransferContract;
-import net.consensys.htlcbridge.admin.commands.TestGenTx;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -19,10 +20,12 @@ public class Admin {
     if (cmd.equalsIgnoreCase("deptx")) {
       DeployTransferContract.deploy(args);
     }
-    else if (cmd.equalsIgnoreCase("test")) {
-      TestGenTx.source(args);
+    else if (cmd.equalsIgnoreCase("deprx")) {
+      DeployReceiverContract.deploy(args);
     }
-
+    else if (cmd.equalsIgnoreCase("deperc20")) {
+      DeployERC20Contract.deploy(args);
+    }
     else {
       LOG.info("Unknown command");
       showHelp();

@@ -1,7 +1,8 @@
 package net.consensys.htlcbridge.relayer;
 
-import com.fasterxml.jackson.databind.node.BigIntegerNode;
 import io.reactivex.Flowable;
+import net.consensys.htlcbridge.common.RevertReason;
+import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -9,9 +10,12 @@ import org.web3j.crypto.Credentials;
 import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.methods.response.EthBlockNumber;
-import org.web3j.protocol.core.methods.response.Log;
+import org.web3j.protocol.core.methods.response.TransactionReceipt;
+import org.web3j.protocol.exceptions.TransactionException;
 import org.web3j.protocol.http.HttpService;
+import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
+import org.web3j.tx.gas.ContractGasProvider;
 
 import java.math.BigInteger;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -19,39 +23,50 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 public class SourceBlockchainObserver {
   private static final Logger LOG = LogManager.getLogger(SourceBlockchainObserver.class);
 
-  int confirmations;
+  int sourceConfirmations;
 
   Erc20HtlcTransfer transferContract;
-  Web3j web3j;
+  Erc20HtlcReceiver receiverContract;
+  Web3j sourceWeb3j;
+  Web3j destWeb3j;
 
   long lastBlockChecked = -1;
 
-  public SourceBlockchainObserver(String uri, String transferContractAddress, int blockPeriod, int confirmations) {
-    this.confirmations = confirmations;
-    this.web3j = Web3j.build(new HttpService(uri), blockPeriod, new ScheduledThreadPoolExecutor(5));
+  public SourceBlockchainObserver(
+      String sourceUri, String transferContractAddress, int sourceBlockPeriod, int sourceConfirmations,
+      String destUri, String receiverContractAddress, int destBlockPeriod, int destConfirmations, String destPKey,
+      int destRetries, long destBcId, ContractGasProvider destGasProvider) {
+    this.sourceConfirmations = sourceConfirmations;
+    this.sourceWeb3j = Web3j.build(new HttpService(sourceUri), sourceBlockPeriod, new ScheduledThreadPoolExecutor(5));
+    this.destWeb3j = Web3j.build(new HttpService(destUri), destBlockPeriod, new ScheduledThreadPoolExecutor(5));
 
     TransactionManager empty = null;
-    this.transferContract = Erc20HtlcTransfer.load(transferContractAddress, web3j, empty, null);
+    Credentials relayerCredentials = Credentials.create(destPKey);
+    TransactionManager destTm = new RawTransactionManager(this.destWeb3j, relayerCredentials, destBcId, destRetries, destBlockPeriod);
+
+    this.transferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, empty, null);
+    this.receiverContract = Erc20HtlcReceiver.load(receiverContractAddress, sourceWeb3j, destTm, destGasProvider);
   }
 
 
   public void checkNewBlock() {
     LOG.info("Source Blockchain Observer checking for new blocks.");
     try {
-      EthBlockNumber ethBlockNumber = this.web3j.ethBlockNumber().send();
+      EthBlockNumber ethBlockNumber = this.sourceWeb3j.ethBlockNumber().send();
       BigInteger blockNumber = ethBlockNumber.getBlockNumber();
       LOG.info("Current Block Number: {}", blockNumber);
       long currentBlockNumber = blockNumber.longValue();
 
       // Check for events between last block checked and current block - number of confirmations
-      if (this.lastBlockChecked > currentBlockNumber - this.confirmations) {
+      if (this.lastBlockChecked > currentBlockNumber - this.sourceConfirmations) {
         LOG.info("No new blocks to process");
         return;
       }
 
       BigInteger startBlockNum = BigInteger.valueOf(this.lastBlockChecked + 1);
       DefaultBlockParameter startBlock = DefaultBlockParameter.valueOf(startBlockNum);
-      BigInteger endBlockNum = BigInteger.valueOf(currentBlockNumber - this.confirmations);
+      long endBlockNumber = currentBlockNumber - this.sourceConfirmations;
+      BigInteger endBlockNum = BigInteger.valueOf(endBlockNumber);
       DefaultBlockParameter endBlock = DefaultBlockParameter.valueOf(endBlockNum);
       LOG.info("Requesting events from blocks {} to {}", startBlockNum, endBlockNum);
       Flowable<Erc20HtlcTransfer.TransferInitEventResponse> transferInitEvents =
@@ -63,9 +78,20 @@ public class SourceBlockchainObserver {
         @Override
         public void accept(Erc20HtlcTransfer.TransferInitEventResponse event) throws Exception {
           LOG.info("Sender: {} , Token Contract: {}, Amount: {}, TimeLock: {}", event.sender, event.tokenContract, event.amount, event.timeLock);
-//          public byte[] commitment;
+          // TODO check that amount > 0
+          // TODO check that timelock hasn't expired.
+          try {
+            TransactionReceipt txr = receiverContract.newTransferFromOtherBlockchain(event.tokenContract, event.sender, event.amount, event.commitment).send();
+            if (!txr.isStatusOK()) {
+              LOG.error("receiver.newTransferFromOtherBlockchain transaction failed");
+            }
+          } catch (TransactionException ex) {
+            LOG.error("receiver.newTransferFromOtherBlockchain: Revert Reason: {}", RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason()));
+          }
         }
       });
+
+      this.lastBlockChecked = endBlockNumber;
 
     } catch (Exception ex) {
       throw new Error(ex);
