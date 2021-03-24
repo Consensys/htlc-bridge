@@ -14,15 +14,15 @@
  */
 pragma solidity >=0.8.0;
 
-import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
-import "./Erc20HtlcTransferDest.sol";
-import "./Erc20HtlcTransferSource.sol";
 
+contract Erc20HtlcTransferState {
+    uint256 constant OPEN = 0;
+    uint256 constant REFUNDED = 1;
+    uint256 constant FINALILISED = 2;
+    uint256 constant TIMEDOUT = 3;
 
-contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource {
-    constructor(uint256 _sourceTimeLock, uint256 _destTimeLock) {
-        sourceTimeLockPeriod = _sourceTimeLock;
-        destTimeLockPeriod = _destTimeLock;
-        authorisedRelayer[msg.sender] = true;
+    function preimageMatchesCommitment(bytes32 _commitment, bytes32 _preimage) public pure returns(bool){
+        return _commitment == keccak256(abi.encodePacked(_preimage));
     }
+
 }

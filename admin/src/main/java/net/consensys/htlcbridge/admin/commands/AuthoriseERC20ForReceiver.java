@@ -1,8 +1,7 @@
 package net.consensys.htlcbridge.admin.commands;
 
 import net.consensys.htlcbridge.admin.Admin;
-import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
-import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
+import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.web3j.crypto.Credentials;
@@ -56,8 +55,8 @@ public class AuthoriseERC20ForReceiver {
 
 
     try {
-      Erc20HtlcReceiver receiver = Erc20HtlcReceiver.load(receiverContractAddress, web3j, tm, freeGasProvider);
-      TransactionReceipt txr = receiver.addAllowedToken(remoteErc20ContractAddress, localErc20ContractAddress).send();
+      Erc20HtlcTransfer receiver = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
+      TransactionReceipt txr = receiver.addDestAllowedToken(remoteErc20ContractAddress, localErc20ContractAddress).send();
       if (!txr.isStatusOK() ) {
         throw new Exception("Unknown error processing request to authorise token contracts in receiver");
       }

@@ -4,7 +4,6 @@ import io.vertx.core.Vertx;
 import net.consensys.htlcbridge.admin.commands.AuthoriseERC20ForReceiver;
 import net.consensys.htlcbridge.admin.commands.AuthoriseERC20ForTransfer;
 import net.consensys.htlcbridge.admin.commands.DeployERC20Contract;
-import net.consensys.htlcbridge.admin.commands.DeployReceiverContract;
 import net.consensys.htlcbridge.admin.commands.DeployTransferContract;
 import net.consensys.htlcbridge.common.Hash;
 import net.consensys.htlcbridge.common.KeyPairGen;
@@ -14,7 +13,6 @@ import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSu
 import net.consensys.htlcbridge.relayer.Relayer;
 import net.consensys.htlcbridge.transfer.ReceiverInfo;
 import net.consensys.htlcbridge.transfer.TransferState;
-import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -67,9 +65,7 @@ public class IntegrationTests {
 
   // Addresses of transfer and receiver contracts on sidechain and MainNet.
   String transferSidechain;
-  String receiverSidechain;
   String transferMainNet;
-  String receiverMainNet;
 
   public IntegrationTests() {
 
@@ -111,23 +107,21 @@ public class IntegrationTests {
     long sidechainDestinationTimeLock = 12 * 60 * 60; // 12 hours.
     long mainnetDestinationTimeLock = 12 * 60 * 60; // 24 hours.
     long sidechainSourceTimeLock = 24 * 60 * 60; // 12 hours.
-    this.transferSidechain = deployTransferContract(false, relayer1PKey, sidechainSourceTimeLock);
-    this.receiverSidechain = deployReceiverContract(false, relayer1PKey, sidechainDestinationTimeLock);
+    this.transferSidechain = deployTransferContract(false, relayer1PKey, sidechainSourceTimeLock, sidechainDestinationTimeLock);
 
     LOG.info("Transfer all tokens on Sidechain to Receiver contract");
-    transferErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.receiverSidechain, TOK1_TOTAL_SUPPLY);
-    transferErc20Tokens(false, erc20Tok2Sidechain, relayer1PKey, this.receiverSidechain, TOK2_TOTAL_SUPPLY);
+    transferErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.transferSidechain, TOK1_TOTAL_SUPPLY);
+    transferErc20Tokens(false, erc20Tok2Sidechain, relayer1PKey, this.transferSidechain, TOK2_TOTAL_SUPPLY);
 
-    LOG.info("Deploy Receiver and Transfer contract on MainNet");
-    this.transferMainNet = deployTransferContract(true, relayer1PKey, mainnetSourceTimeLock);
-    this.receiverMainNet = deployReceiverContract(true, relayer1PKey, mainnetDestinationTimeLock);
+    LOG.info("Deploy Transfer contract on MainNet");
+    this.transferMainNet = deployTransferContract(true, relayer1PKey, mainnetSourceTimeLock, mainnetDestinationTimeLock);
 
     LOG.info("Add {} and {} to list of authorised ERC 20 contracts", TOK1_NAME, TOK2_NAME);
     // Always add tokens to receivers first.
-    authoriseErc20TokensOnReceiver(false, receiverSidechain, relayer1PKey, erc20Tok1Sidechain, erc20Tok1MainNet);
-    authoriseErc20TokensOnReceiver(false, receiverSidechain, relayer1PKey, erc20Tok2Sidechain, erc20Tok2MainNet);
-    authoriseErc20TokensOnReceiver(true, receiverMainNet, relayer1PKey, erc20Tok1MainNet, erc20Tok1Sidechain);
-    authoriseErc20TokensOnReceiver(true, receiverMainNet, relayer1PKey, erc20Tok2MainNet, erc20Tok2Sidechain);
+    authoriseErc20TokensOnReceiver(false, transferSidechain, relayer1PKey, erc20Tok1Sidechain, erc20Tok1MainNet);
+    authoriseErc20TokensOnReceiver(false, transferSidechain, relayer1PKey, erc20Tok2Sidechain, erc20Tok2MainNet);
+    authoriseErc20TokensOnReceiver(true, transferMainNet, relayer1PKey, erc20Tok1MainNet, erc20Tok1Sidechain);
+    authoriseErc20TokensOnReceiver(true, transferMainNet, relayer1PKey, erc20Tok2MainNet, erc20Tok2Sidechain);
     authoriseErc20TokensOnTransfer(false, transferSidechain, relayer1PKey, erc20Tok1Sidechain);
     authoriseErc20TokensOnTransfer(false, transferSidechain, relayer1PKey, erc20Tok2Sidechain);
     authoriseErc20TokensOnTransfer(true, transferMainNet, relayer1PKey, erc20Tok1MainNet);
@@ -179,7 +173,7 @@ public class IntegrationTests {
       }
 
       LOG.info(" Balances Before Transfer on Sidechain for Token {}: {}", TOK1_NAME, erc20Tok1Sidechain);
-      LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.receiverSidechain));
+      LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.transferSidechain));
       LOG.info("  Relayer1: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey));
       LOG.info("  Relayer2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer2PKey));
       LOG.info("  User2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, user1PKey));
@@ -188,7 +182,7 @@ public class IntegrationTests {
       postPreimage(false, preimage, commitment, user1PKey);
 
       LOG.info(" Balances After Transfer on Sidechain for Token {}: {}", TOK1_NAME, erc20Tok1Sidechain);
-      LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.receiverSidechain));
+      LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.transferSidechain));
       LOG.info("  Relayer1: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey));
       LOG.info("  Relayer2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer2PKey));
       LOG.info("  User2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, user1PKey));
@@ -224,11 +218,12 @@ public class IntegrationTests {
   }
 
 
-  public String deployTransferContract(boolean deployOnMainNet, String pKeyOwner, long timeLock) throws Exception {
+  public String deployTransferContract(boolean deployOnMainNet, String pKeyOwner, long sourceTimeLock, long destTimeLock) throws Exception {
     String uri = deployOnMainNet ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
     String bcId = deployOnMainNet ? MAINNET_BLOCKCHAIN_ID : SIDECHAIN_BLOCKCHAIN_ID;
     String blockPeriod = deployOnMainNet ? Integer.toString(MAINNET_BLOCK_PERIOD) : Integer.toString(SIDECHAIN_BLOCK_PERIOD);
-    String timeLockStr = Long.toString(timeLock);
+    String sourceTimeLockStr = Long.toString(sourceTimeLock);
+    String destTimeLockStr = Long.toString(destTimeLock);
 
     String[] args = new String[] {
         "ignored",
@@ -236,28 +231,11 @@ public class IntegrationTests {
         bcId,       // Chain ID
         pKeyOwner,
         blockPeriod,
-        timeLockStr};   // Timelock: 24 * 60 * 60 = 86400
+        sourceTimeLockStr,
+        destTimeLockStr};   // Timelock: 24 * 60 * 60 = 86400
 
     return DeployTransferContract.deploy(args);
   }
-
-  public String deployReceiverContract(boolean deployOnMainNet, String pKeyOwner, long timeLock) throws Exception {
-    String uri = deployOnMainNet ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
-    String bcId = deployOnMainNet ? MAINNET_BLOCKCHAIN_ID : SIDECHAIN_BLOCKCHAIN_ID;
-    String blockPeriod = deployOnMainNet ? Integer.toString(MAINNET_BLOCK_PERIOD) : Integer.toString(SIDECHAIN_BLOCK_PERIOD);
-    String timeLockStr = Long.toString(timeLock);
-
-    String[] args = new String[] {
-        "ignored",
-        uri,
-        bcId,       // Chain ID
-        pKeyOwner,
-        blockPeriod,
-        timeLockStr};   // Timelock: 24 * 60 * 60 = 86400
-
-    return DeployReceiverContract.deploy(args);
-  }
-
 
   public String deployErc20Contract(boolean deployOnMainNet, String tokenName, String tokenSymbol, long totalSupply, String pKeyOwner) throws Exception {
     String uri = deployOnMainNet ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
@@ -406,7 +384,7 @@ public class IntegrationTests {
 
 
     String destBcUri = fromMainNetToSidechain ? SIDECHAIN_BLOCKCHAIN_URI : MAINNET_BLOCKCHAIN_URI;
-    String destReceiverContract = fromMainNetToSidechain ? receiverSidechain : receiverMainNet;
+    String destReceiverContract = fromMainNetToSidechain ? transferSidechain : transferMainNet;
     int destBlockPeriod = fromMainNetToSidechain ? SIDECHAIN_BLOCK_PERIOD : MAINNET_BLOCK_PERIOD;
     int destConfirmations = fromMainNetToSidechain ? SIDECHAIN_CONFIRMATIONS : MAINNET_CONFIRMATIONS;
     int destRetries = 5;
@@ -467,7 +445,7 @@ public class IntegrationTests {
     String uri = onMainNet ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
     String bcIdStr = onMainNet ? MAINNET_BLOCKCHAIN_ID : SIDECHAIN_BLOCKCHAIN_ID;
     String blockPeriod = onMainNet ? Integer.toString(MAINNET_BLOCK_PERIOD) : Integer.toString(SIDECHAIN_BLOCK_PERIOD);
-    String receiverContractAddress = onMainNet ? receiverMainNet : receiverSidechain;
+    String receiverContractAddress = onMainNet ? transferMainNet : transferSidechain;
 
     long bcId = Long.parseLong(bcIdStr);
     int pollingInterval = Integer.parseInt(blockPeriod);
@@ -479,12 +457,12 @@ public class IntegrationTests {
     Web3j web3j = Web3j.build(new HttpService(uri), pollingInterval, new ScheduledThreadPoolExecutor(5));
     TransactionManager tm = new RawTransactionManager(web3j, user, bcId, RETRY, pollingInterval);
 
-    Erc20HtlcReceiver receiver = Erc20HtlcReceiver.load(receiverContractAddress, web3j, tm, freeGasProvider);
+    Erc20HtlcTransfer receiver = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
 
     boolean exists = false;
     for (int i=0; i<100; i++) {
       LOG.info(" Waiting for transfer to be posted to receiver: {}", i);
-      exists = receiver.transferExists(commitment).send();
+      exists = receiver.destTransferExists(commitment).send();
       if (exists) {
         LOG.info(" Transfer has been posted to receiver!");
         break;
@@ -501,7 +479,7 @@ public class IntegrationTests {
     String uri = onMainNet ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
     String bcIdStr = onMainNet ? MAINNET_BLOCKCHAIN_ID : SIDECHAIN_BLOCKCHAIN_ID;
     String blockPeriod = onMainNet ? Integer.toString(MAINNET_BLOCK_PERIOD) : Integer.toString(SIDECHAIN_BLOCK_PERIOD);
-    String receiverContractAddress = onMainNet ? receiverMainNet : receiverSidechain;
+    String receiverContractAddress = onMainNet ? transferMainNet : transferSidechain;
 
     long bcId = Long.parseLong(bcIdStr);
     int pollingInterval = Integer.parseInt(blockPeriod);
@@ -513,8 +491,8 @@ public class IntegrationTests {
     Web3j web3j = Web3j.build(new HttpService(uri), pollingInterval, new ScheduledThreadPoolExecutor(5));
     TransactionManager tm = new RawTransactionManager(web3j, user, bcId, RETRY, pollingInterval);
 
-    Erc20HtlcReceiver receiver = Erc20HtlcReceiver.load(receiverContractAddress, web3j, tm, freeGasProvider);
-    Tuple7<String, String, String, BigInteger, byte[], BigInteger, BigInteger> info = receiver.getInfo(commitment).send();
+    Erc20HtlcTransfer receiver = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
+    Tuple7<String, String, String, BigInteger, byte[], BigInteger, BigInteger> info = receiver.getDestInfo(commitment).send();
     return new ReceiverInfo(commitment, info);
   }
 
@@ -523,7 +501,7 @@ public class IntegrationTests {
     String uri = onMainNet ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
     String bcIdStr = onMainNet ? MAINNET_BLOCKCHAIN_ID : SIDECHAIN_BLOCKCHAIN_ID;
     String blockPeriod = onMainNet ? Integer.toString(MAINNET_BLOCK_PERIOD) : Integer.toString(SIDECHAIN_BLOCK_PERIOD);
-    String receiverContractAddress = onMainNet ? receiverMainNet : receiverSidechain;
+    String receiverContractAddress = onMainNet ? transferMainNet : transferSidechain;
 
     long bcId = Long.parseLong(bcIdStr);
     int pollingInterval = Integer.parseInt(blockPeriod);
@@ -535,7 +513,7 @@ public class IntegrationTests {
     Web3j web3j = Web3j.build(new HttpService(uri), pollingInterval, new ScheduledThreadPoolExecutor(5));
     TransactionManager tm = new RawTransactionManager(web3j, user, bcId, RETRY, pollingInterval);
 
-    Erc20HtlcReceiver receiver = Erc20HtlcReceiver.load(receiverContractAddress, web3j, tm, freeGasProvider);
+    Erc20HtlcTransfer receiver = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
     TransactionReceipt txr;
     try {
       txr = receiver.finaliseTransferFromOtherBlockchain(commitment, preimage).send();

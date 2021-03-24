@@ -4,7 +4,6 @@ import io.reactivex.Flowable;
 import net.consensys.htlcbridge.common.RevertReason;
 import net.consensys.htlcbridge.relayer.data.DataStore;
 import net.consensys.htlcbridge.relayer.data.TransferInformation;
-import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -28,7 +27,7 @@ public class SourceBlockchainObserver {
   int sourceConfirmations;
 
   Erc20HtlcTransfer transferContract;
-  Erc20HtlcReceiver receiverContract;
+  Erc20HtlcTransfer receiverContract;
   Web3j sourceWeb3j;
   Web3j destWeb3j;
 
@@ -50,7 +49,7 @@ public class SourceBlockchainObserver {
     TransactionManager destTm = new RawTransactionManager(this.destWeb3j, relayerCredentials, destBcId, destRetries, destBlockPeriod);
 
     this.transferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, empty, null);
-    this.receiverContract = Erc20HtlcReceiver.load(receiverContractAddress, destWeb3j, destTm, destGasProvider);
+    this.receiverContract = Erc20HtlcTransfer.load(receiverContractAddress, destWeb3j, destTm, destGasProvider);
   }
 
 
@@ -74,14 +73,14 @@ public class SourceBlockchainObserver {
       BigInteger endBlockNum = BigInteger.valueOf(endBlockNumber);
       DefaultBlockParameter endBlock = DefaultBlockParameter.valueOf(endBlockNum);
       LOG.info("Requesting events from blocks {} to {}", startBlockNum, endBlockNum);
-      Flowable<Erc20HtlcTransfer.TransferInitEventResponse> transferInitEvents =
-          this.transferContract.transferInitEventFlowable(startBlock, endBlock);
+      Flowable<Erc20HtlcTransfer.SourceTransferInitEventResponse> transferInitEvents =
+          this.transferContract.sourceTransferInitEventFlowable(startBlock, endBlock);
 
 
 
-      transferInitEvents.subscribe(new io.reactivex.functions.Consumer<Erc20HtlcTransfer.TransferInitEventResponse>() {
+      transferInitEvents.subscribe(new io.reactivex.functions.Consumer<Erc20HtlcTransfer.SourceTransferInitEventResponse>() {
         @Override
-        public void accept(Erc20HtlcTransfer.TransferInitEventResponse event) throws Exception {
+        public void accept(Erc20HtlcTransfer.SourceTransferInitEventResponse event) throws Exception {
           LOG.info("Sender: {} , Token Contract: {}, Amount: {}, TimeLock: {}", event.sender, event.tokenContract, event.amount, event.timeLock);
           // TODO pass in direction.
           TransferInformation info = new TransferInformation(

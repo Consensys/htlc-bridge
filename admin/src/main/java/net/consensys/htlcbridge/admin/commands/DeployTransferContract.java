@@ -24,14 +24,8 @@ public class DeployTransferContract {
   public static String deploy(String[] args) throws Exception {
     LOG.info("Deploy Transfer Contract");
 
-    if (args.length != 6) {
-      LOG.info("Using defaults while testing!");
-      args = new String[]{"ignored",
-          "http://127.0.0.1:8400/",
-          "40",
-          new KeyPairGen().generateKeyPairGetPrivateKey(),
-          "2000",
-          "86400"}; //24 * 60 * 60 = 86400
+    if (args.length != 7) {
+      throw new Error("here");
 //      Admin.showHelp();
 //      return;
     }
@@ -39,12 +33,14 @@ public class DeployTransferContract {
     String blockchainIdStr = args[2];
     String privateKey = args[3];
     String blockPeriod = args[4];
-    String timeLockStr = args[5];
+    String sourceTimeLockStr = args[5];
+    String destTimeLockStr = args[6];
 
     long bcId = Long.parseLong(blockchainIdStr);
     int pollingInterval = Integer.parseInt(blockPeriod);
     final int RETRY = 5;
-    BigInteger timeLock = new BigInteger(timeLockStr);
+    BigInteger sourceTimeLock = new BigInteger(sourceTimeLockStr);
+    BigInteger destTimeLock = new BigInteger(destTimeLockStr);
 
     Web3j web3j;
     TransactionManager tm;
@@ -58,7 +54,7 @@ public class DeployTransferContract {
     tm = new RawTransactionManager(web3j, credentials, bcId, RETRY, pollingInterval);
 
     try {
-      Erc20HtlcTransfer transferContract = Erc20HtlcTransfer.deploy(web3j, tm, freeGasProvider, timeLock).send();
+      Erc20HtlcTransfer transferContract = Erc20HtlcTransfer.deploy(web3j, tm, freeGasProvider, sourceTimeLock, destTimeLock).send();
 
       LOG.info("Successfully deployed transfer contract to address: {}", transferContract.getContractAddress());
       return transferContract.getContractAddress();

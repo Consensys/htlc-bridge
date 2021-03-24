@@ -2,7 +2,6 @@ package net.consensys.htlcbridge.relayer;
 
 import io.reactivex.Flowable;
 import net.consensys.htlcbridge.common.RevertReason;
-import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcReceiver;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -26,7 +25,7 @@ public class DestinationBlockchainObserver {
   int destConfirmations;
 
   Erc20HtlcTransfer transferContract;
-  Erc20HtlcReceiver receiverContract;
+  Erc20HtlcTransfer receiverContract;
   Web3j sourceWeb3j;
   Web3j destWeb3j;
 
@@ -46,7 +45,7 @@ public class DestinationBlockchainObserver {
     TransactionManager sourceTm = new RawTransactionManager(this.sourceWeb3j, relayerCredentials, sourceBcId, sourceRetries, sourceBlockPeriod);
 
     this.transferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, sourceTm, sourceGasProvider);
-    this.receiverContract = Erc20HtlcReceiver.load(receiverContractAddress, destWeb3j, empty, null);
+    this.receiverContract = Erc20HtlcTransfer.load(receiverContractAddress, destWeb3j, empty, null);
   }
 
 
@@ -70,11 +69,11 @@ public class DestinationBlockchainObserver {
       BigInteger endBlockNum = BigInteger.valueOf(endBlockNumber);
       DefaultBlockParameter endBlock = DefaultBlockParameter.valueOf(endBlockNum);
       LOG.info("Requesting events from blocks {} to {}", startBlockNum, endBlockNum);
-      Flowable<Erc20HtlcReceiver.TransferCompletedEventResponse> transferCompletedEvents =
-          this.receiverContract.transferCompletedEventFlowable(startBlock, endBlock);
-      transferCompletedEvents.subscribe(new io.reactivex.functions.Consumer<Erc20HtlcReceiver.TransferCompletedEventResponse>() {
+      Flowable<Erc20HtlcTransfer.DestTransferCompletedEventResponse> transferCompletedEvents =
+          this.receiverContract.destTransferCompletedEventFlowable(startBlock, endBlock);
+      transferCompletedEvents.subscribe(new io.reactivex.functions.Consumer<Erc20HtlcTransfer.DestTransferCompletedEventResponse>() {
         @Override
-        public void accept(Erc20HtlcReceiver.TransferCompletedEventResponse event) throws Exception {
+        public void accept(Erc20HtlcTransfer.DestTransferCompletedEventResponse event) throws Exception {
           LOG.info("Receiver: Completed Transfer: Commitment: {}, Preimage: {}", event.commitment, event.preimage);
           // TODO consider adding information to the datastore.
           LOG.info("Finalising transfer at source");

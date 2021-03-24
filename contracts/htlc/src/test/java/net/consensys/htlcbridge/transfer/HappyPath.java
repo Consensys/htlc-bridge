@@ -31,7 +31,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
     // Add the token to the list of tokens that can be transferred.
     String tokenContractAddress = token1Erc20.getContractAddress();
-    TransactionReceipt txr = this.transferContract.addAllowedToken(tokenContractAddress).send();
+    TransactionReceipt txr = this.transferContract.addSourceAllowedToken(tokenContractAddress).send();
     if (!txr.isStatusOK()) {
       throw new Exception("Status not OK: addAllowedToken");
     }
@@ -72,7 +72,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
     }
 
     // Check that the transfer contract believes the transfer is completed.
-    BigInteger transferState = this.transferContract.transferState(commitmentBytes).send();
+    BigInteger transferState = this.transferContract.sourceTransferState(commitmentBytes).send();
     assertTrue(TransferState.FINALILISED.equals(transferState));
 
     // Check that the balance was transferred in the ERC 20 contract.
@@ -94,7 +94,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
     // Add the token to the list of tokens that can be transferred.
     String tokenContractAddress = token1Erc20.getContractAddress();
-    TransactionReceipt txr = this.transferContract.addAllowedToken(tokenContractAddress).send();
+    TransactionReceipt txr = this.transferContract.addSourceAllowedToken(tokenContractAddress).send();
     if (!txr.isStatusOK()) {
       throw new Exception("Status not OK: addAllowedToken");
     }
@@ -124,7 +124,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
     }
 
     // Wait for time lock to expire. Given the 1ms timelock - it should have already expired.
-    while (!this.transferContract.transferExpired(commitmentBytes).send()) {
+    while (!this.transferContract.sourceTransferExpired(commitmentBytes).send()) {
       LOG.info("waiting for time lock to expire");
       Thread.sleep(100);
     }
@@ -141,7 +141,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
     }
 
     // Check that the transfer contract believes the transfer was refunded.
-    BigInteger transferState = this.transferContract.transferState(commitmentBytes).send();
+    BigInteger transferState = this.transferContract.sourceTransferState(commitmentBytes).send();
     assertTrue(TransferState.REFUNDED.equals(transferState));
 
     // Check that the balance was not transferred in the ERC 20 contract.

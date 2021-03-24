@@ -28,7 +28,7 @@ public class Events extends AbstractErc20HtlcTransferTest {
 
     // Add the token to the list of tokens that can be transferred.
     String tokenContractAddress = token1Erc20.getContractAddress();
-    TransactionReceipt txr = this.transferContract.addAllowedToken(tokenContractAddress).send();
+    TransactionReceipt txr = this.transferContract.addSourceAllowedToken(tokenContractAddress).send();
     if (!txr.isStatusOK()) {
       throw new Exception("Status not OK: addAllowedToken");
     }
@@ -57,10 +57,10 @@ public class Events extends AbstractErc20HtlcTransferTest {
     if (!txr.isStatusOK()) {
       throw new Exception("Status not OK: newTransferToOtherBlockchain");
     }
-    List<Erc20HtlcTransfer.TransferInitEventResponse> events = this.transferContract.getTransferInitEvents(txr);
+    List<Erc20HtlcTransfer.SourceTransferInitEventResponse> events = this.transferContract.getSourceTransferInitEvents(txr);
 
     assertEquals(1, events.size());
-    Erc20HtlcTransfer.TransferInitEventResponse event = events.get(0);
+    Erc20HtlcTransfer.SourceTransferInitEventResponse event = events.get(0);
     assertEquals(amountToTransfer, event.amount);
     assertArrayEquals(commitmentBytes, event.commitment);
     assertEquals(this.credentials.getAddress(), event.sender);
