@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuite name="net.consensys.htlcbridge.transfer.Events" tests="1" skipped="0" failures="0" errors="0" timestamp="2021-03-22T01:00:57" hostname="Peters-MacBook-Pro.local" time="16.892">
-  <properties/>
-  <testcase name="initTransferEvent" classname="net.consensys.htlcbridge.transfer.Events" time="16.892"/>
-  <system-out><![CDATA[2021-03-22 11:01:14.537+10:00 | Test worker | INFO  | Events | 1616374872
-2021-03-22 11:01:14.545+10:00 | Test worker | INFO  | Events | 1616374874
-]]></system-out>
-  <system-err><![CDATA[]]></system-err>
-</testsuite>
