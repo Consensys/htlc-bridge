@@ -36,7 +36,8 @@ public class AbstractErc20HtlcTransferTest extends AbstractWeb3Test {
   public static final BigInteger TEST_SUPPLY = BigInteger.valueOf(1000);
 
   protected void deployTransferContract() throws Exception {
-    this.transferContract = Erc20HtlcTransfer.deploy(this.web3j, this.tm, this.freeGasProvider, TEST_TIMELOCK, TEST_TIMELOCK).send();
+    this.transferContract = Erc20HtlcTransfer.deploy(this.web3j, this.tm, this.freeGasProvider).send();
+    this.transferContract.initialise(TEST_TIMELOCK, TEST_TIMELOCK).send();
   }
 
   protected ERC20PresetFixedSupply deployErc20Contract() throws Exception {

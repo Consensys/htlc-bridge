@@ -1,5 +1,6 @@
 package net.consensys.htlcbridge.relayer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
 import io.vertx.core.Vertx;
@@ -10,6 +11,9 @@ import net.consensys.htlcbridge.relayer.api.RestAPI;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.web3j.tx.gas.ContractGasProvider;
+
+import java.io.File;
+import java.io.IOException;
 
 public class Relayer extends AbstractVerticle {
   private static final Logger LOG = LogManager.getLogger(Relayer.class);
@@ -23,8 +27,25 @@ public class Relayer extends AbstractVerticle {
   DestinationBlockchainObserver destBlockchainObserver;
   int destBlockPeriod;
 
-  public Relayer() {
-    throw new Error("Needs to read configuration from a file!");
+  public Relayer(File configFile) throws Exception {
+    this((RelayerConfig) (new ObjectMapper().readerFor(RelayerConfig.class).readValue(configFile)));
+  }
+
+  public Relayer(RelayerConfig config) throws Exception {
+    this.api = new RestAPI(this.vertx, config.apiPort);
+    this.sourceBlockchainObserver = new SourceBlockchainObserver(
+        config.sourceBcUri, config.sourceTransferContract, config.sourceBlockPeriod, config.sourceConfirmations,
+        config.sourceRelayerPKey, config.sourceRetries, config.sourceBcId, config.sourceGasStrategy,
+        config.destBcUri, config.destTransferContract, config.destBlockPeriod, config.destConfirmations,
+        config.destRelayerPKey, config.destRetries, config.destBcId, config.destGasStrategy);
+    this.sourceBlockPeriod = config.sourceBlockPeriod;
+
+    this.destBlockchainObserver = new DestinationBlockchainObserver(
+        config.sourceBcUri, config.sourceTransferContract, config.sourceBlockPeriod, config.sourceConfirmations,
+        config.sourceRelayerPKey, config.sourceRetries, config.sourceBcId, config.sourceGasStrategy,
+        config.destBcUri, config.destTransferContract, config.destBlockPeriod, config.destConfirmations,
+        config.destRelayerPKey, config.destRetries, config.destBcId, config.destGasStrategy);
+    this.destBlockPeriod = config.destBlockPeriod;
   }
 
   // TODO work out where relayer is up to.
@@ -48,6 +69,11 @@ public class Relayer extends AbstractVerticle {
         destBcUri, destTransferContract, destBlockPeriod, destConfirmations,
         destRelayerPKey, destRetries, destBcId, destGasProvider);
     this.destBlockPeriod = destBlockPeriod;
+  }
+
+  public void setRelayers(int numRelayers, int relayerOffset) {
+    this.sourceBlockchainObserver.setRelayers(numRelayers, relayerOffset);
+    this.destBlockchainObserver.setRelayers(numRelayers, relayerOffset);
   }
 
 
@@ -135,8 +161,13 @@ public class Relayer extends AbstractVerticle {
 
   }
 
-  public static void main (String[] args) {
+  public static void main (String[] args) throws Exception {
+    String filename = args[0];
+    System.out.println("Filename: " + filename);
+    File configFile = new File(filename);
+    Relayer relayer = new Relayer(configFile);
+
     Vertx vertx = Vertx.vertx();
-    vertx.deployVerticle(new Relayer());
+    vertx.deployVerticle(relayer);
   }
 }

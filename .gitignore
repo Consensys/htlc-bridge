@@ -44,3 +44,6 @@ site/
 
 
 **/node_modules
+
+relayer1.config
+relayer2.config

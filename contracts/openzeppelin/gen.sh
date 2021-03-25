@@ -10,17 +10,15 @@ OUTPUTDIR=$HERE/src/main/java
 TESTOUTPUTDIR=$HERE/src/test/java
 PACKAGE=net.consensys.htlcbridge.openzeppelin.soliditywrappers
 WEB3J=web3j
-#WEB3J=../web3j-rlp/codegen/build/distributions/codegen-4.7.0-SNAPSHOT/bin/codegen
 
 
 # compiling one file also compiles its dependendencies. We use overwrite to avoid the related warnings.
 solc $CONTRACTSDIR/token/ERC20/presets/ERC20PresetFixedSupply.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
-#solc $TESTCONTRACTSDIR/Erc20HtlcTransferTest.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
-# ls -al $BUILDDIR
+solc $CONTRACTSDIR/proxy/transparent/ProxyAdmin.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
+solc $CONTRACTSDIR/proxy/transparent/TransparentUpgradeableProxy.sol --allow-paths . --bin --abi --optimize -o $BUILDDIR --overwrite
 
 $WEB3J solidity generate -a=$BUILDDIR/ERC20PresetFixedSupply.abi -b=$BUILDDIR/ERC20PresetFixedSupply.bin -o=$OUTPUTDIR -p=$PACKAGE
-#$WEB3J solidity generate -a=$BUILDDIR/LockableStorage.abi -b=$BUILDDIR/LockableStorage.bin -o=$OUTPUTDIR -p=$PACKAGE
-#$WEB3J solidity generate -a=$BUILDDIR/MockCbcForLockableStorageTest.abi -b=$BUILDDIR/MockCbcForLockableStorageTest.bin -o=$TESTOUTPUTDIR -p=$PACKAGE
-#$WEB3J solidity generate -a=$BUILDDIR/TestLockableStorageWrapper.abi -b=$BUILDDIR/TestLockableStorageWrapper.bin -o=$TESTOUTPUTDIR -p=$PACKAGE
+$WEB3J solidity generate -a=$BUILDDIR/ProxyAdmin.abi -b=$BUILDDIR/ProxyAdmin.bin -o=$OUTPUTDIR -p=$PACKAGE
+$WEB3J solidity generate -a=$BUILDDIR/TransparentUpgradeableProxy.abi -b=$BUILDDIR/TransparentUpgradeableProxy.bin -o=$OUTPUTDIR -p=$PACKAGE
 
 

@@ -2,6 +2,8 @@ package net.consensys.htlcbridge.admin.commands;
 
 import net.consensys.htlcbridge.admin.Admin;
 import net.consensys.htlcbridge.common.KeyPairGen;
+import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ProxyAdmin;
+import net.consensys.htlcbridge.openzeppelin.soliditywrappers.TransparentUpgradeableProxy;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,13 +56,24 @@ public class DeployTransferContract {
     tm = new RawTransactionManager(web3j, credentials, bcId, RETRY, pollingInterval);
 
     try {
-      Erc20HtlcTransfer transferContract = Erc20HtlcTransfer.deploy(web3j, tm, freeGasProvider, sourceTimeLock, destTimeLock).send();
-
-      LOG.info("Successfully deployed transfer contract to address: {}", transferContract.getContractAddress());
-      return transferContract.getContractAddress();
+      Erc20HtlcTransfer transferContract = Erc20HtlcTransfer.deploy(web3j, tm, freeGasProvider).send();
+      LOG.info(" Successfully deployed transfer contract to address: {}", transferContract.getContractAddress());
+      ProxyAdmin proxyAdmin = ProxyAdmin.deploy(web3j, tm, freeGasProvider).send();
+      LOG.info(" Successfully deployed proxy admin contract to address: {}", proxyAdmin.getContractAddress());
+      TransparentUpgradeableProxy proxy = TransparentUpgradeableProxy.deploy(web3j, tm, freeGasProvider,
+          transferContract.getContractAddress(), proxyAdmin.getContractAddress(), new byte[]{}).send();
+      LOG.info(" Successfully deployed proxy contract to address: {}", proxy.getContractAddress());
+      Erc20HtlcTransfer transferContractProxied = Erc20HtlcTransfer.load(proxy.getContractAddress(), web3j, tm, freeGasProvider);
+      transferContractProxied.initialise(sourceTimeLock, destTimeLock).send();
+      BigInteger version = transferContractProxied.version().send();
+      LOG.info(" Successfully initialised transfer contract. Reporting version: {}", version);
+      boolean authorised = transferContractProxied.isAuthorisedRelayer(credentials.getAddress()).send();
+      LOG.info(" Relayer {} isAuthorised: {}", credentials.getAddress(), authorised);
+      LOG.info(" Transfer contract proxies at address: {}", proxy.getContractAddress());
+      return proxy.getContractAddress();
     }
     catch (Exception ex) {
-      LOG.error("Exception thrown while deploying transfer contract: {}", ex.getMessage());
+      LOG.error(" Exception thrown while deploying transfer contract: {}", ex.getMessage());
       throw ex;
     }
   }

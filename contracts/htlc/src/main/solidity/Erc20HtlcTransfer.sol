@@ -14,15 +14,22 @@
  */
 pragma solidity >=0.8.0;
 
-import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
 import "./Erc20HtlcTransferDest.sol";
 import "./Erc20HtlcTransferSource.sol";
+import "../../../../openzeppelin/src/main/solidity/proxy/utils/Initializable.sol";
 
 
-contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource {
-    constructor(uint256 _sourceTimeLock, uint256 _destTimeLock) {
+contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource, Initializable {
+    uint256 constant VERSION = 202010325;
+
+    function initialise(uint256 _sourceTimeLock, uint256 _destTimeLock) initializer()  external {
         sourceTimeLockPeriod = _sourceTimeLock;
         destTimeLockPeriod = _destTimeLock;
         authorisedRelayer[msg.sender] = true;
     }
+
+    function version() external pure returns (uint256) {
+        return VERSION;
+    }
+
 }

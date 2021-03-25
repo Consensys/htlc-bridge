@@ -18,7 +18,7 @@ import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
 import "./Erc20HtlcTransferState.sol";
 
 
-contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
+abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
     // Time lock for transfers from this blockchain.
     uint256 public sourceTimeLockPeriod;
 
@@ -37,6 +37,21 @@ contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
     }
     mapping (bytes32 => SourceTransfer) sourceTransfers;
 
+    // The following variables are never used. The idea is that if / when this
+    // contract is upgraded, these locations will be used. Reserving them
+    // now in this contract should guard against clashes between this
+    // abstract contract and other abstract contracts that are combined
+    // into a single implementation.
+    uint256 dummy1;
+    uint256 dummy2;
+    uint256 dummy3;
+    uint256 dummy4;
+    uint256 dummy5;
+    uint256 dummy6;
+    uint256 dummy7;
+    uint256 dummy8;
+    uint256 dummy9;
+    uint256 dummy10;
 
     function addSourceAllowedToken(address _tokenContract) external {
         sourceAllowedTokens[_tokenContract] = true;

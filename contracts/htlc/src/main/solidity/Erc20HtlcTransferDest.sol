@@ -18,7 +18,7 @@ import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
 import "./Erc20HtlcTransferState.sol";
 
 
-contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
+abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
     // Time lock for transfers to this blockchain.
     uint256 public destTimeLockPeriod;
 
@@ -42,6 +42,24 @@ contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
         uint256 state;
     }
     mapping (bytes32 => DestTransfer) destTransfers;
+
+
+    // The following variables are never used. The idea is that if / when this
+    // contract is upgraded, these locations will be used. Reserving them
+    // now in this contract should guard against clashes between this
+    // abstract contract and other abstract contracts that are combined
+    // into a single implementation.
+    uint256 dummy101;
+    uint256 dummy102;
+    uint256 dummy103;
+    uint256 dummy104;
+    uint256 dummy105;
+    uint256 dummy106;
+    uint256 dummy107;
+    uint256 dummy108;
+    uint256 dummy109;
+    uint256 dummy110;
+
 
 
     modifier onlyAuthorisedRelayer() {
@@ -116,7 +134,9 @@ contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
         return (t.relayer, t.recipient, t.otherBlockchainTokenContract, t.amount,  t.preimage, t.timeLock, t.state);
     }
 
-
+    function isAuthorisedRelayer(address _relayer) external view returns(bool) {
+        return authorisedRelayer[_relayer];
+    }
 
     function isDestAllowedToken(address _tokenContract) public view returns(bool) {
         return destAllowedTokens[_tokenContract] != address(0);

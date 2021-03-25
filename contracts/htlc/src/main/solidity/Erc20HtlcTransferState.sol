@@ -15,7 +15,7 @@
 pragma solidity >=0.8.0;
 
 
-contract Erc20HtlcTransferState {
+abstract contract Erc20HtlcTransferState {
     uint256 constant OPEN = 0;
     uint256 constant REFUNDED = 1;
     uint256 constant FINALILISED = 2;

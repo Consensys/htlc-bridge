@@ -1,7 +1,9 @@
 package net.consensys.htlcbridge.relayer;
 
 import io.reactivex.Flowable;
+import net.consensys.htlcbridge.common.DynamicGasProvider;
 import net.consensys.htlcbridge.common.RevertReason;
+import net.consensys.htlcbridge.transfer.TransferState;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -31,6 +33,11 @@ public class DestinationBlockchainObserver {
 
   long lastBlockChecked = -1;
 
+  int numRelayers = 1;
+  int relayerOffset = 0;
+  int relayCounter = 0;
+
+
   public DestinationBlockchainObserver(
       String sourceUri, String transferContractAddress, int sourceBlockPeriod, int sourceConfirmations,
       String sourcePKey, int sourceRetries, long sourceBcId, ContractGasProvider sourceGasProvider,
@@ -48,8 +55,40 @@ public class DestinationBlockchainObserver {
     this.receiverContract = Erc20HtlcTransfer.load(receiverContractAddress, destWeb3j, empty, null);
   }
 
+  public DestinationBlockchainObserver(
+      String sourceUri, String transferContractAddress, int sourceBlockPeriod, int sourceConfirmations,
+      String sourcePKey, int sourceRetries, long sourceBcId, String sourceGasStrategy,
+      String destUri, String receiverContractAddress, int destBlockPeriod, int destConfirmations, String destPKey,
+      int destRetries, long destBcId, String destGasStrategy) throws Exception {
+    this.sourceWeb3j = Web3j.build(new HttpService(sourceUri), sourceBlockPeriod, new ScheduledThreadPoolExecutor(5));
+    ContractGasProvider sourceGasProvider = new DynamicGasProvider(this.sourceWeb3j, sourceUri, sourceGasStrategy);
+    this.destConfirmations = destConfirmations;
+    this.destWeb3j = Web3j.build(new HttpService(destUri), destBlockPeriod, new ScheduledThreadPoolExecutor(5));
+    ContractGasProvider destGasProvider = new DynamicGasProvider(this.destWeb3j, destUri, destGasStrategy);
+
+    Credentials relayerCredentials = Credentials.create(destPKey);
+    TransactionManager sourceTm = new RawTransactionManager(this.sourceWeb3j, relayerCredentials, sourceBcId, sourceRetries, sourceBlockPeriod);
+    TransactionManager destTm = new RawTransactionManager(this.destWeb3j, relayerCredentials, destBcId, destRetries, destBlockPeriod);
+
+    this.transferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, sourceTm, sourceGasProvider);
+    this.receiverContract = Erc20HtlcTransfer.load(receiverContractAddress, destWeb3j, destTm, destGasProvider);
+  }
+
+
+
+  public void setRelayers(int numRelayers, int relayerOffset) {
+    this.numRelayers = numRelayers;
+    this.relayerOffset = relayerOffset;
+  }
 
   public void checkNewBlock() {
+//    this.relayCounter++;
+//    this.relayCounter = this.relayCounter % this.numRelayers;
+//    if (this.relayCounter != this.relayerOffset) {
+//      LOG.info("Source Blockchain Observer fairness skipping: {}: {} of {}", this.relayerOffset, this.relayCounter, this.numRelayers);
+//      return;
+//    }
+
     LOG.info("Destination Blockchain Observer checking for new blocks.");
     try {
       EthBlockNumber ethBlockNumber = this.destWeb3j.ethBlockNumber().send();
@@ -76,6 +115,14 @@ public class DestinationBlockchainObserver {
         public void accept(Erc20HtlcTransfer.DestTransferCompletedEventResponse event) throws Exception {
           LOG.info("Receiver: Completed Transfer: Commitment: {}, Preimage: {}", event.commitment, event.preimage);
           // TODO consider adding information to the datastore.
+
+          // Check whether another relayer has already submitted this transfer.
+          BigInteger state = transferContract.sourceTransferState(event.commitment).send();
+          if (!TransferState.OPEN.equals(state)) {
+            LOG.info(" Transfer state on source is: {}", TransferState.create(state));
+            return;
+          }
+
           LOG.info("Finalising transfer at source");
 
           try {
