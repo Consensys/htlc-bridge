@@ -20,7 +20,7 @@ import "../../../../openzeppelin/src/main/solidity/proxy/utils/Initializable.sol
 
 
 contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource, Initializable {
-    uint256 constant VERSION = 202010325;
+    uint256 constant VERSION = 20210325;
 
     function initialise(uint256 _sourceTimeLock, uint256 _destTimeLock) initializer()  external {
         sourceTimeLockPeriod = _sourceTimeLock;
