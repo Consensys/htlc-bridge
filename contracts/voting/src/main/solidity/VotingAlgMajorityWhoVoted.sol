@@ -14,14 +14,13 @@
  */
 pragma solidity >=0.7.1;
 
-import "./VotingAlgInterface.sol";
+import "./VotingAlgImplBase.sol";
 
 
 /**
 * The vote is assessed based on those participants who voted.
 */
-contract VotingAlgMajorityWhoVoted is VotingAlgInterface {
-
+contract VotingAlgMajorityWhoVoted is VotingAlgImplBase {
     function assess(uint64 /* numParticipants */, address[] memory votedFor, address[] memory votedAgainst) external pure override(VotingAlgInterface) returns (bool) {
         return (votedFor.length > votedAgainst.length);
     }

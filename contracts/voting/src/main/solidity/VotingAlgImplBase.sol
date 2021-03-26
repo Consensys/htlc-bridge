@@ -14,13 +14,15 @@
  */
 pragma solidity >=0.7.1;
 
-import "./VotingAlgImplBase.sol";
+import "./VotingAlgInterface.sol";
+import "../../../../openzeppelin/src/main/solidity/utils/introspection/ERC165Storage.sol";
 
 /**
 * The vote is assessed based on the total number of participants who voted.
 */
-contract VotingAlgMajority is VotingAlgImplBase {
-    function assess(uint64 numParticipants, address[] memory votedFor, address[] memory /* votedAgainst */) external pure override(VotingAlgInterface) returns (bool) {
-        return (votedFor.length * 2 > numParticipants);
+abstract contract VotingAlgImplBase is VotingAlgInterface, ERC165Storage {
+
+    constructor () {
+        _registerInterface(type(VotingAlgInterface).interfaceId);
     }
 }

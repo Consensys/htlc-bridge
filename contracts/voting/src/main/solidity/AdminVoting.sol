@@ -126,9 +126,13 @@ abstract contract AdminVoting {
             // the only admin is avoided.
             require(_voteTarget != msg.sender, "VoteRemoveAdmin: Can not remove self");
         }
-        //else if (action == VoteType.VOTE_CHANGE_VOTING) {
-        // Nothing to check
-        //}
+        else if (action == VoteType.VOTE_CHANGE_VOTING) {
+            IERC165 votingAlgContract = IERC165(_voteTarget);
+            require(votingAlgContract.supportsInterface(type(VotingAlgInterface).interfaceId),
+                "VoteChangeVoting: Proposed contract not a voting contract");
+            require(_additionalInfo1 > 0, "Proposed voting period is 0");
+
+        }
 
         // Set-up the vote.
         votes[_voteTarget].voteType = action;
@@ -191,7 +195,11 @@ abstract contract AdminVoting {
 
 
     function votePeriodExpired(address _voteTarget) public view returns (bool)  {
-        return votes[_voteTarget].endOfVotingPeriod > block.timestamp;
+        return votes[_voteTarget].endOfVotingPeriod < block.timestamp;
+    }
+
+    function endOfVotingPeriod(address _voteTarget) public view returns (uint256)  {
+        return votes[_voteTarget].endOfVotingPeriod;
     }
 
     function isVoteActive(address _voteTarget) public view returns (bool)  {
@@ -212,6 +220,28 @@ abstract contract AdminVoting {
 
     function getVotingConfig() external view returns (address, uint64) {
         return (votingAlgorithmContract, votingPeriod);
+    }
+
+    /**
+     * Observing the voting events will show who has voted. This function can be used
+     * as an alternative mechanism while a vote is active.
+     */
+    function whoVoted(address _voteTarget, bool _votedFor, uint256 _index) public view returns (address)  {
+        if (_votedFor) {
+            return votes[_voteTarget].votedFor[_index];
+        }
+        else {
+            return votes[_voteTarget].votedAgainst[_index];
+        }
+    }
+
+    function numVotes(address _voteTarget, bool _votedFor) public view returns (uint256)  {
+        if (_votedFor) {
+            return votes[_voteTarget].votedFor.length;
+        }
+        else {
+            return votes[_voteTarget].votedAgainst.length;
+        }
     }
 
 

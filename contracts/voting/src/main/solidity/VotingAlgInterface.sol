@@ -13,12 +13,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 pragma solidity >=0.7.1;
+import "../../../../openzeppelin/src/main/solidity/utils/introspection/IERC165.sol";
 
 
 /*
 * Interface which all voting algorithms must implement.
 */
-interface VotingAlgInterface {
+interface VotingAlgInterface is IERC165 {
     /**
      * Assess a vote.
      *
