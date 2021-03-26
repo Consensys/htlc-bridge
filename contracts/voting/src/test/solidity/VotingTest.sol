@@ -14,22 +14,11 @@
  */
 pragma solidity >=0.8.0;
 
-import "./Erc20HtlcTransferDest.sol";
-import "./Erc20HtlcTransferSource.sol";
-import "../../../../openzeppelin/src/main/solidity/proxy/utils/Initializable.sol";
+import "../../main/solidity/AdminVoting.sol";
 
+contract VotingTest is AdminVoting {
 
-contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource, Initializable {
-    uint256 constant VERSION = 20210325;
-
-    function initialise(uint256 _sourceTimeLock, uint256 _destTimeLock) initializer()  external {
-        sourceTimeLockPeriod = _sourceTimeLock;
-        destTimeLockPeriod = _destTimeLock;
-        authorisedRelayer[msg.sender] = true;
+    constructor() {
+        initialise();
     }
-
-    function version() external pure returns (uint256) {
-        return VERSION;
-    }
-
 }

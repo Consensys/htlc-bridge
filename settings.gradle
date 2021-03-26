@@ -4,8 +4,10 @@ include 'htlc'
 include 'openzeppelin'
 include 'relayer'
 include 'admin'
+include 'voting'
 
 project(":htlc").projectDir = file("contracts/htlc")
 project(":openzeppelin").projectDir = file("contracts/openzeppelin")
+project(":voting").projectDir = file("contracts/voting")
 include 'itest'
 

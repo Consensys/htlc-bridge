@@ -15,6 +15,7 @@
             <option value="$PROJECT_DIR$/common" />
             <option value="$PROJECT_DIR$/contracts/htlc" />
             <option value="$PROJECT_DIR$/contracts/openzeppelin" />
+            <option value="$PROJECT_DIR$/contracts/voting" />
             <option value="$PROJECT_DIR$/itest" />
             <option value="$PROJECT_DIR$/relayer" />
           </set>
