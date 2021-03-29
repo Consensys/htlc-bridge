@@ -22,16 +22,16 @@ import "./VotingAlgInterface.sol";
 abstract contract AdminVoting {
     // Indications that a vote is underway.
     // VOTE_NONE indicates no vote is underway. Also matches the deleted value for integers.
-    enum VoteType {
-        VOTE_NONE,                            // 0: MUST be the first value so it is the zero / deleted value.
-        VOTE_ADD_ADMIN,                       // 1
-        VOTE_REMOVE_ADMIN,                    // 2
-        VOTE_CHANGE_VOTING                    // 3
-    }
+    uint256 constant VOTE_NONE = 0;   // MUST be the first value so it is the zero / deleted value.
+    uint256 constant VOTE_ADD_ADMIN = 1;
+    uint256 constant VOTE_REMOVE_ADMIN = 2;
+    uint256 constant VOTE_CHANGE_VOTING = 3;
+    uint256 constant VOTE_APPLICATION_START = 100;
+
 
     struct Votes {
         // The type of vote being voted on.
-        VoteType voteType;
+        uint16 voteType;
         // Additional information about what is being voted on.
         uint256 additionalInfo1;
         // The end of the voting period in seconds.
@@ -110,30 +110,36 @@ abstract contract AdminVoting {
         // Can't start a vote if a vote is already underway.
         require(!isVoteActive(_voteTarget), "Voting already in progress");
 
-        // This will revert if the action is not a valid VoteType.
-        VoteType action = VoteType(_action);
-
-        if (action == VoteType.VOTE_ADD_ADMIN) {
+        if (_action == VOTE_NONE) {
+            revert("VoteNone: Can not vote for nothing");
+        }
+        else if (_action == VOTE_ADD_ADMIN) {
             // If the action is to add an admin, then they shouldn't be an admin already.
             require(!isAdmin(_voteTarget), "VoteAddAdmin: Address is already an admin");
         }
-        else if (action == VoteType.VOTE_REMOVE_ADMIN) {
+        else if (_action == VOTE_REMOVE_ADMIN) {
             // If the action is to remove an admin, then they should be an admin already.
             require(isAdmin(_voteTarget), "VoteRemoveAdmin: Address is not an admin");
             // Don't allow admins to propose removing themselves. This means the case of removing
             // the only admin is avoided.
             require(_voteTarget != msg.sender, "VoteRemoveAdmin: Can not remove self");
         }
-        else if (action == VoteType.VOTE_CHANGE_VOTING) {
+        else if (_action == VOTE_CHANGE_VOTING) {
             IERC165 votingAlgContract = IERC165(_voteTarget);
             require(votingAlgContract.supportsInterface(type(VotingAlgInterface).interfaceId),
                 "VoteChangeVoting: Proposed contract not a voting contract");
             require(_additionalInfo1 > 0, "Proposed voting period is 0");
-
+        }
+        else if (_action < VOTE_APPLICATION_START) {
+            revert("VoteAdmin: type not supported");
+        }
+        else {
+            proposeAppVote(_action, _voteTarget, _additionalInfo1);
         }
 
+
         // Set-up the vote.
-        votes[_voteTarget].voteType = action;
+        votes[_voteTarget].voteType = _action;
         votes[_voteTarget].endOfVotingPeriod = block.timestamp + votingPeriod;
         votes[_voteTarget].additionalInfo1 = _additionalInfo1;
 
@@ -162,9 +168,7 @@ abstract contract AdminVoting {
         require(!votePeriodExpired(_voteTarget), "Voting period has expired");
         require(votes[_voteTarget].hasVoted[msg.sender] == false, "Account has already voted");
 
-        // This will throw an error if the action is not a valid VoteType.
-        VoteType action = VoteType(_action);
-        require(votes[_voteTarget].voteType == action, "Voting action does not match active proposal");
+        require(votes[_voteTarget].voteType == _action, "Voting action does not match active proposal");
 
         voteNoChecks(_action, _voteTarget, _voteFor);
     }
@@ -185,8 +189,8 @@ abstract contract AdminVoting {
             numAdmins,
             votes[_voteTarget].votedFor,
             votes[_voteTarget].votedAgainst);
-        VoteType action = votes[_voteTarget].voteType;
-        emit VoteResult(uint16(action), _voteTarget, result);
+        uint16 action = votes[_voteTarget].voteType;
+        emit VoteResult(action, _voteTarget, result);
 
         actionVotesNoChecks(_voteTarget, result);
     }
@@ -201,11 +205,11 @@ abstract contract AdminVoting {
     }
 
     function isVoteActive(address _voteTarget) public view returns (bool)  {
-        return votes[_voteTarget].voteType != VoteType.VOTE_NONE;
+        return votes[_voteTarget].voteType != VOTE_NONE;
     }
 
     function voteType(address _voteTarget) external view returns (uint16)  {
-        return uint16(votes[_voteTarget].voteType);
+        return votes[_voteTarget].voteType;
     }
 
     function isAdmin(address _mightBeAdmin) public view returns (bool)  {
@@ -242,6 +246,14 @@ abstract contract AdminVoting {
         }
     }
 
+    /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
+    /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
+    /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
+
+    // Code that extends this contract must implement these functions to implement their own actions.
+    function proposeAppVote(uint16 _action, address _voteTarget, uint256 _additionalInfo1) internal virtual {}
+    function actionAppVote(uint16 _action, address _voteTarget, uint256 _additionalInfo1) internal virtual {}
+
 
     /************************************* PRIVATE FUNCTIONS BELOW HERE *************************************/
     /************************************* PRIVATE FUNCTIONS BELOW HERE *************************************/
@@ -263,20 +275,24 @@ abstract contract AdminVoting {
     function actionVotesNoChecks(address _voteTarget, bool _result) private {
         if (_result) {
             // The vote has been decided in the affirmative.
-            VoteType action = votes[_voteTarget].voteType;
+            uint16 action = votes[_voteTarget].voteType;
             uint256 additionalInfo1 = votes[_voteTarget].additionalInfo1;
-            if (action == VoteType.VOTE_ADD_ADMIN) {
+            if (action == VOTE_ADD_ADMIN) {
                 adminsMap[_voteTarget] = true;
                 numAdmins++;
             }
-            else if (action == VoteType.VOTE_REMOVE_ADMIN) {
+            else if (action == VOTE_REMOVE_ADMIN) {
                 delete adminsMap[_voteTarget];
                 numAdmins--;
             }
-            else if (action == VoteType.VOTE_CHANGE_VOTING) {
+            else if (action == VOTE_CHANGE_VOTING) {
                 votingAlgorithmContract = _voteTarget;
                 votingPeriod = uint64(additionalInfo1);
             }
+            else {
+                actionAppVote(action, _voteTarget, additionalInfo1);
+            }
+
         }
 
 
