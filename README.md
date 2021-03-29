@@ -4,14 +4,13 @@ The repo contains code for a bi-directional Hash Time-Locked Contracts (HTLC)
 based token bridge.  As shown in the simplified architecture diagram below, 
 ERC20HtlcTransfer contracts are deployed on two blockchains. They allow ERC 20
 tokens from one blockchain to be moved to another blockchain, and then later 
-back to the original blockchain.
+moved back to the original blockchain.
 
 ![BiDirectional Bridge](https://raw.githubusercontent.com/ConsenSys/htlc-bridge/main/docs/bidirectional-bridge.png)
 
 ## TODO
 Need to write a section introducing users and relayers.
 
-Need to discuss wrapper tokens on remote contracts.
 
 
 ## Sequence
@@ -22,24 +21,24 @@ another blockchain.
 ![Sequence](https://raw.githubusercontent.com/ConsenSys/htlc-bridge/main/docs/htlc-transfer.png)
 
 Walking through the diagram:
-* User submits a transaction to the ERC 20 contract on the source blockchain to 
+* A user submits a transaction to the ERC 20 contract on the source blockchain to 
  approve up to a certain number of tokens to be transferred by the 
  ```ERC20HtlcTransfer``` contract by calling the ERC 20 contract's 
  ```approve``` function. 
-* User generates a random pre-image-salt, and calculates a commitment based on 
+* The user generates a random pre-image-salt, and calculates a commitment based on 
 the pre-image-salt, the user's address, the address of the ERC 20 contract on
 the source blockchain, and the number of tokens to be transferred.
-* User submits a transaction to the ```ERC20HtlcTransfer```, 
+* The user submits a transaction to the ```ERC20HtlcTransfer```, 
 ```newTransferToOtherBlockchain```,
 specifying the token address, the number of tokens to transfer, and the commitment
 value.
 * During the ```newTransferToOtherBlockchain``` call, 
 the ```ERC20HtlcTransfer``` contract 
-calls the ERC 20 contract's ```transferFrom``` to transfer tokens from the user
+calls the ERC 20 contract's ```transferFrom``` function to transfer tokens from the user
 to the ```ERC20HtlcTransfer``` contract. Additionally, a ```SourceTransferInit``` event
 is emitted.
 * Relayers monitor the source blockchain, looking for ```SourceTransferInit``` events.
-* When a Relayer sees a ```SourceTransferInit``` event, it submits a transaction to the
+* When a relayer sees a ```SourceTransferInit``` event, it submits a transaction to the
 ```ERC20HtlcTransfer``` contract on the destination blockchain, calling 
 the ```newTransferFromOtherBlockchain``` function, submitting the 
 user's account address, the ERC 20 token's address on the source blockchain, 
@@ -59,10 +58,10 @@ the tokens from the ```ERC20HtlcTransfer``` contract to the user. The
 ```DestTransferCompleted``` event is emitted.
 * Relayers monitor the destination blockchain, looking for ```DestTransferCompleted```
 events.  
-* When a Relayer sees a ```DestTransferCompleted``` event, it submits a transaction
+* When a relayer sees a ```DestTransferCompleted``` event, it submits a transaction
 to call the ```finaliseTransferToOtherBlockchain``` on the ```ERC20HtlcTransfer``` contract 
 on the source blockchain, submitting the commitment and the pre-image-salt. 
-Doing this finalises the transfer from the Relayer's perspective.
+Doing this finalises the transfer from the relayer's perspective.
 
 ## Time-outs and Refunds
 The ```ERC20HtlcTransfer``` contracts have source and destination 

@@ -14,12 +14,20 @@ end
 
 User->ERC20S: approve
 User->User: Generate primage salt\n & commitment
+
 User->TxS: newTransferToOtherBlockchain
+activate TxS
 TxS->ERC20S: transferFrom
 TxS-->Relayer: SourceTransferInit
+deactivate TxS
+
 Relayer->TxD: newTransferFromOtherBlockchain
+activate TxD
 TxD-->User: DestTransferInit
+deactivate TxD
 User->TxD: finaliseTransferFromOtherBlockchain
+activate TxD
 TxD->ERC20D: transfer
 TxD-->Relayer: DestTransferCompleted
+deactivate TxD
 Relayer->TxS: finaliseTransferToOtherBlockchain
