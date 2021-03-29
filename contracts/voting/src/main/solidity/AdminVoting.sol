@@ -22,11 +22,11 @@ import "./VotingAlgInterface.sol";
 abstract contract AdminVoting {
     // Indications that a vote is underway.
     // VOTE_NONE indicates no vote is underway. Also matches the deleted value for integers.
-    uint256 constant VOTE_NONE = 0;   // MUST be the first value so it is the zero / deleted value.
-    uint256 constant VOTE_ADD_ADMIN = 1;
-    uint256 constant VOTE_REMOVE_ADMIN = 2;
-    uint256 constant VOTE_CHANGE_VOTING = 3;
-    uint256 constant VOTE_APPLICATION_START = 100;
+    uint16 constant VOTE_NONE = 0;   // MUST be the first value so it is the zero / deleted value.
+    uint16 constant VOTE_ADD_ADMIN = 1;
+    uint16 constant VOTE_REMOVE_ADMIN = 2;
+    uint16 constant VOTE_CHANGE_VOTING = 3;
+    uint16 constant VOTE_APPLICATION_START = 100;
 
 
     struct Votes {
@@ -44,7 +44,7 @@ abstract contract AdminVoting {
         // The participants who voted against the proposal.
         address[] votedAgainst;
     }
-    mapping(address=>Votes) private votes;
+    mapping(address=>Votes) internal votes;
 
     // The algorithm for assessing the votes.
     address private votingAlgorithmContract;

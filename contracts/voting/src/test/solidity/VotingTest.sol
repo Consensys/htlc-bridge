@@ -17,8 +17,35 @@ pragma solidity >=0.8.0;
 import "../../main/solidity/AdminVoting.sol";
 
 contract VotingTest is AdminVoting {
+    uint16 constant VOTE_VAL = 100;
+    uint256 public val;
+
 
     constructor() {
         initialise();
     }
+
+
+//    function initialise() external {
+//        AdminVoting.initialise();
+//    }
+
+    /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
+    /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
+    /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
+
+    function proposeAppVote(uint16 _action, address _voteTarget, uint256 /* _additionalInfo1 */) internal pure override {
+        if (_action == VOTE_VAL) {
+            require(_voteTarget == address(0), "AppVote: vote target must be zero when changing val");
+        }
+        else {
+            revert("AppVote: Unsupported vote action");
+        }
+    }
+    function actionAppVote(uint16 _action, address _voteTarget, uint256 /* _additionalInfo1 */) internal override {
+        if (_action == VOTE_VAL) {
+            val = votes[_voteTarget].additionalInfo1;
+        }
+    }
+
 }
