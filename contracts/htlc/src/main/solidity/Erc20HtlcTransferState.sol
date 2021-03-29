@@ -21,11 +21,11 @@ abstract contract Erc20HtlcTransferState {
     uint256 constant FINALILISED = 2;
     uint256 constant TIMEDOUT = 3;
 
-    function preimageMatchesCommitment(bytes32 _commitment, bytes32 _preimage) public pure returns(bool){
+    function preimageMatchesCommitmentOld(bytes32 _commitment, bytes32 _preimage) public pure returns(bool){
         return _commitment == keccak256(abi.encodePacked(_preimage));
     }
 
-    function preimageMatchesCommitment1(bytes32 _commitment, bytes32 _preimage, address _user, address _token, uint256 _amount) public pure returns(bool){
+    function preimageMatchesCommitment(bytes32 _commitment, bytes32 _preimage, address _user, address _token, uint256 _amount) public pure returns(bool){
         return _commitment == keccak256(abi.encodePacked(_preimage, _user, _token, _amount));
     }
 

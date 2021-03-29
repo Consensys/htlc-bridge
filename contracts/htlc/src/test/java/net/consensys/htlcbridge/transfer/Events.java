@@ -43,9 +43,9 @@ public class Events extends AbstractErc20HtlcTransferTest {
 
     // Set-up HTLC / token transfer.
     BigInteger amountToTransfer = BigInteger.ONE;
-    Bytes preimage = PRNG.getPublicRandomBytes32();
-    byte[] preimageBytes = preimage.toArray();
-    Bytes commitment = Hash.keccak256(preimage);
+    Bytes preimageSalt = PRNG.getPublicRandomBytes32();
+    byte[] Salt = preimageSalt.toArray();
+    Bytes commitment = CommitmentCalculator.calculate(preimageSalt, this.credentials.getAddress(), tokenContractAddress, amountToTransfer);
     byte[] commitmentBytes = commitment.toArray();
     long nowInSeconds = System.currentTimeMillis() / 1000;
     try {

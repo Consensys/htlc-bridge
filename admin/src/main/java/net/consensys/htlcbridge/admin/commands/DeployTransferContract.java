@@ -67,7 +67,7 @@ public class DeployTransferContract {
       transferContractProxied.initialise(sourceTimeLock, destTimeLock).send();
       BigInteger version = transferContractProxied.version().send();
       LOG.info(" Successfully initialised transfer contract. Reporting version: {}", version);
-      boolean authorised = transferContractProxied.isAuthorisedRelayer(credentials.getAddress()).send();
+      boolean authorised = transferContractProxied.isAdmin(credentials.getAddress()).send();
       LOG.info(" Relayer {} isAuthorised: {}", credentials.getAddress(), authorised);
       LOG.info(" Transfer contract proxies at address: {}", proxy.getContractAddress());
       return proxy.getContractAddress();

@@ -31,7 +31,7 @@ abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
         address tokenContract;
         uint256 amount;
         bytes32 commitment;
-        bytes32 preimage;
+        bytes32 preimageSalt;
         uint256 timeLock;
         uint256 state;
     }
@@ -88,12 +88,14 @@ abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
         emit SourceTransferInit(_commitment, msg.sender, _tokenContract, _amount, timeLock);
     }
 
-    function finaliseTransferToOtherBlockchain(bytes32 _commitment, bytes32 _preimage) external {
+    function finaliseTransferToOtherBlockchain(bytes32 _commitment, bytes32 _preimageSalt) external {
         require(sourceTransferExists(_commitment), "Transfer does not exist");
-        require(preimageMatchesCommitment(_commitment, _preimage), "Preimage does not match commitment");
+        require(preimageMatchesCommitment(_commitment, _preimageSalt,
+            sourceTransfers[_commitment].sender, sourceTransfers[_commitment].tokenContract,
+            sourceTransfers[_commitment].amount), "Preimage does not match commitment");
         require(sourceTransfers[_commitment].state == OPEN, "Transfer not in open state");
 
-        sourceTransfers[_commitment].preimage = _preimage;
+        sourceTransfers[_commitment].preimageSalt = _preimageSalt;
         sourceTransfers[_commitment].state = FINALILISED;
 
         emit SourceTransferCompleted(_commitment);
@@ -117,11 +119,11 @@ abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
 
 
     function getSourceInfo(bytes32 _commitment) public view returns
-        (address sender, address tokenContract, uint256 amount, bytes32 preimage, uint256 timeLock, uint256 state) {
+        (address sender, address tokenContract, uint256 amount, bytes32 preimageSalt, uint256 timeLock, uint256 state) {
         require(sourceTransferExists(_commitment), "Transfer does not exist");
 
         SourceTransfer storage t = sourceTransfers[_commitment];
-        return (t.sender, t.tokenContract, t.amount,  t.preimage, t.timeLock, t.state);
+        return (t.sender, t.tokenContract, t.amount,  t.preimageSalt, t.timeLock, t.state);
     }
 
 
@@ -139,7 +141,7 @@ abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
     }
 
     function sourceTransferState(bytes32 _commitment) public view returns(uint256){
-        if (sourceTransferExpired(_commitment)) {
+        if (sourceTransfers[_commitment].state == OPEN && sourceTransferExpired(_commitment)) {
             return TIMEDOUT;
         }
         return sourceTransfers[_commitment].state;

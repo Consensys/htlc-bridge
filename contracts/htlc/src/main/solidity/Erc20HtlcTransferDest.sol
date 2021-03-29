@@ -16,9 +16,10 @@ pragma solidity >=0.8.0;
 
 import "contracts/openzeppelin/src/main/solidity/token/ERC20/ERC20.sol";
 import "./Erc20HtlcTransferState.sol";
+import "../../../../voting/src/main/solidity/AdminVoting.sol";
 
 
-abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
+abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState, AdminVoting {
     // Time lock for transfers to this blockchain.
     uint256 public destTimeLockPeriod;
 
@@ -26,18 +27,13 @@ abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
     // Map (token contract address on source blockchain => token contract address on this (the destination) blockchain)
     mapping (address => address) public destAllowedTokens;
 
-    // Relayers that are allowed to complete transfers on the destination side.
-    // Care should be taken as these relayers transfer tokens to users. They must be trusted.
-    // Map (relayer account address => true if the relayer is authorised).
-    mapping (address => bool) public authorisedRelayer;
-
     struct DestTransfer {
         address relayer;
         address recipient;
         address otherBlockchainTokenContract;
         uint256 amount;
         bytes32 commitment;
-        bytes32 preimage;
+        bytes32 preimageSalt;
         uint256 timeLock;
         uint256 state;
     }
@@ -62,18 +58,11 @@ abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
 
 
 
+    // Relayers that are allowed to complete transfers on the destination side.
+    // Care should be taken as these relayers transfer tokens to users. They must be trusted.
     modifier onlyAuthorisedRelayer() {
-        require(authorisedRelayer[msg.sender], "Not an authorised relayer");
+        require(isAdmin(msg.sender), "Not an authorised relayer");
         _;
-    }
-
-
-    function addAuthorisedRelayer(address _newRelayer) onlyAuthorisedRelayer() external {
-        authorisedRelayer[_newRelayer] = true;
-    }
-
-    function removeAuthorisedRelayer(address _relayerToBeRemoved) onlyAuthorisedRelayer() external {
-        authorisedRelayer[_relayerToBeRemoved] = false;
     }
 
 
@@ -108,9 +97,11 @@ abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
         emit DestTransferInit(_commitment, msg.sender, _recipient, _otherBlockchainTokenContract, _amount, timeLock);
     }
 
-    function finaliseTransferFromOtherBlockchain(bytes32 _commitment, bytes32 _preimage) external {
+    function finaliseTransferFromOtherBlockchain(bytes32 _commitment, bytes32 _preimageSalt) external {
         require(destTransferExists(_commitment), "Transfer does not exist");
-        require(preimageMatchesCommitment(_commitment, _preimage), "Preimage does not match commitment");
+        require(preimageMatchesCommitment(_commitment, _preimageSalt, destTransfers[_commitment].recipient,
+            destTransfers[_commitment].otherBlockchainTokenContract, destTransfers[_commitment].amount),
+            "Preimage does not match commitment");
         require(destTransfers[_commitment].state == OPEN, "Transfer not in open state");
         require(!destTransferExpired(_commitment), "Transfer timed-out");
 
@@ -120,22 +111,18 @@ abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState {
             revert("tranfer failed");
         }
 
-        destTransfers[_commitment].preimage = _preimage;
+        destTransfers[_commitment].preimageSalt = _preimageSalt;
         destTransfers[_commitment].state = FINALILISED;
 
-        emit DestTransferCompleted(_commitment, _preimage);
+        emit DestTransferCompleted(_commitment, _preimageSalt);
     }
 
     function getDestInfo(bytes32 _commitment) public view returns
-        (address relayer, address receiver, address otherBlockchainTokenContract, uint256 amount, bytes32 preimage, uint256 timeLock, uint256 state) {
+        (address relayer, address receiver, address otherBlockchainTokenContract, uint256 amount, bytes32 preimageSalt, uint256 timeLock, uint256 state) {
         require(destTransferExists(_commitment), "Transfer does not exist");
 
         DestTransfer storage t = destTransfers[_commitment];
-        return (t.relayer, t.recipient, t.otherBlockchainTokenContract, t.amount,  t.preimage, t.timeLock, t.state);
-    }
-
-    function isAuthorisedRelayer(address _relayer) external view returns(bool) {
-        return authorisedRelayer[_relayer];
+        return (t.relayer, t.recipient, t.otherBlockchainTokenContract, t.amount,  t.preimageSalt, t.timeLock, t.state);
     }
 
     function isDestAllowedToken(address _tokenContract) public view returns(bool) {

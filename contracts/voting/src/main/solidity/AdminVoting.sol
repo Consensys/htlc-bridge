@@ -78,8 +78,6 @@ abstract contract AdminVoting {
         // Have msg.sender deploying this contract as an admin
         adminsMap[msg.sender] = true;
         numAdmins = 1;
-
-//        supportedInterfaces[type(RegistrarInterface).interfaceId] = true;
     }
 
 

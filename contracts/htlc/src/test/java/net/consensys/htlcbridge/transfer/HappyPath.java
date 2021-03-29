@@ -24,7 +24,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
   // Note that this test assumes instant finality.
   @Test
-  public void standardTransfer() throws Exception {
+  public void sourceStandardTransfer() throws Exception {
     setupWeb3();
     deployTransferContract();
     ERC20PresetFixedSupply token1Erc20 = deployErc20Contract();
@@ -46,9 +46,9 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
     // Set-up HTLC / token transfer.
     BigInteger amountToTransfer = BigInteger.ONE;
-    Bytes preimage = PRNG.getPublicRandomBytes32();
-    byte[] preimageBytes = preimage.toArray();
-    Bytes commitment = Hash.keccak256(preimage);
+    Bytes preimageSalt = PRNG.getPublicRandomBytes32();
+    byte[] preimageSaltBytes = preimageSalt.toArray();
+    Bytes commitment = CommitmentCalculator.calculate(preimageSalt, this.credentials.getAddress(), tokenContractAddress, amountToTransfer);
     byte[] commitmentBytes = commitment.toArray();
     try {
       txr = this.transferContract.newTransferToOtherBlockchain(tokenContractAddress, amountToTransfer, commitmentBytes).send();
@@ -62,7 +62,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
     // Complete the transfer.
     try {
-      txr = this.transferContract.finaliseTransferToOtherBlockchain(commitmentBytes, preimageBytes).send();
+      txr = this.transferContract.finaliseTransferToOtherBlockchain(commitmentBytes, preimageSaltBytes).send();
     } catch (TransactionException ex) {
       LOG.error(RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason()));
       throw ex;
@@ -73,6 +73,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
     // Check that the transfer contract believes the transfer is completed.
     BigInteger transferState = this.transferContract.sourceTransferState(commitmentBytes).send();
+    LOG.info("Transfer State: {}: {}", TransferState.create(transferState), transferState);
     assertTrue(TransferState.FINALILISED.equals(transferState));
 
     // Check that the balance was transferred in the ERC 20 contract.
@@ -87,7 +88,7 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
   // Note that this test assumes instant finality.
   @Test
-  public void refundTransfer() throws Exception {
+  public void sourceRefundTransfer() throws Exception {
     setupWeb3();
     deployTransferContract();
     ERC20PresetFixedSupply token1Erc20 = deployErc20Contract();
@@ -109,9 +110,8 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
 
     // Set-up HTLC / token transfer.
     BigInteger amountToTransfer = BigInteger.ONE;
-    Bytes preimage = PRNG.getPublicRandomBytes32();
-    byte[] preimageBytes = preimage.toArray();
-    Bytes commitment = Hash.keccak256(preimage);
+    Bytes preimageSalt = PRNG.getPublicRandomBytes32();
+    Bytes commitment = CommitmentCalculator.calculate(preimageSalt, this.credentials.getAddress(), tokenContractAddress, amountToTransfer);
     byte[] commitmentBytes = commitment.toArray();
     try {
       txr = this.transferContract.newTransferToOtherBlockchain(tokenContractAddress, amountToTransfer, commitmentBytes).send();

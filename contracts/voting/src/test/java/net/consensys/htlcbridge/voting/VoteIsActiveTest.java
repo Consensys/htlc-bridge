@@ -152,14 +152,13 @@ public class VoteIsActiveTest extends AbstractVotingTest {
     TransactionReceipt txr = this.votingContract.proposeVote(VoteTypes.VOTE_CHANGE_VOTING.asBigInt(), votingAlgContract.getContractAddress(), longTime).send();
     assertTrue(txr.isStatusOK());
 
-    // Step 2 is propose a vote.
-    Credentials credentials2 = createNewIdentity();
-    String cred2Address = credentials2.getAddress();
+    // Step 2 is propose a vote: change the voting period.
+    BigInteger longerTime = BigInteger.valueOf(1000);
     TransactionReceipt receipt = this.votingContract.proposeVote(
-        VoteTypes.VOTE_CHANGE_VOTING.asBigInt(), cred2Address, BigInteger.ZERO).send();
+        VoteTypes.VOTE_CHANGE_VOTING.asBigInt(), votingAlgContract.getContractAddress(), longerTime).send();
     assert(receipt.isStatusOK());
 
-    BigInteger voteType = this.votingContract.voteType(cred2Address).send();
+    BigInteger voteType = this.votingContract.voteType(votingAlgContract.getContractAddress()).send();
     assertEquals(VoteTypes.VOTE_CHANGE_VOTING.asBigInt(), voteType);
   }
 
