@@ -1,0 +1,25 @@
+# HTLC Transfer
+# https://sequencediagram.org/
+actor User
+actor Relayer
+
+participantgroup #lightgreen **Source Blockchain**
+participant "ERC20" as ERC20S
+participant "Transfer" as TxS
+end
+participantgroup #lightblue **Destination Blockchain**
+participant "ERC20" as ERC20D
+participant "Transfer" as TxD
+end
+
+User->ERC20S: approve
+User->User: Generate primage salt\n & commitment
+User->TxS: newTransferToOtherBlockchain
+TxS->ERC20S: transferFrom
+TxS-->Relayer: SourceTransferInit
+Relayer->TxD: newTransferFromOtherBlockchain
+TxD-->User: DestTransferInit
+User->TxD: finaliseTransferFromOtherBlockchain
+TxD->ERC20D: transfer
+TxD-->Relayer: DestTransferCompleted
+Relayer->TxS: finaliseTransferToOtherBlockchain
