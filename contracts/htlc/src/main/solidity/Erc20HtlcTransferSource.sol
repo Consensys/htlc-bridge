@@ -53,16 +53,6 @@ abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
     uint256 dummy9;
     uint256 dummy10;
 
-    function addSourceAllowedToken(address _tokenContract) external {
-        sourceAllowedTokens[_tokenContract] = true;
-        SourceAllowedTokenAdded(_tokenContract);
-    }
-
-    function removeSourceAllowedToken(address _tokenContract) external {
-        sourceAllowedTokens[_tokenContract] = false;
-        SourceAllowedTokenRemoved(_tokenContract);
-    }
-
 
     /**
      * Transfer tokens from msg.sender to this contract.
@@ -158,7 +148,4 @@ abstract contract Erc20HtlcTransferSource is Erc20HtlcTransferState {
     );
     event SourceTransferCompleted(bytes32 indexed commitment);
     event SourceTransferRefunded(bytes32 indexed commitment);
-
-    event SourceAllowedTokenAdded(address tokenContract);
-    event SourceAllowedTokenRemoved(address tokenContract);
 }

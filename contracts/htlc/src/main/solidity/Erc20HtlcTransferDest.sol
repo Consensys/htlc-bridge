@@ -65,18 +65,6 @@ abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState, AdminVoting {
         _;
     }
 
-
-    function addDestAllowedToken(address _otherBlockchainTokenContract, address _thisBlockchainTokenContract) onlyAuthorisedRelayer() external {
-        destAllowedTokens[_otherBlockchainTokenContract] = _thisBlockchainTokenContract;
-        DestAllowedTokenAdded(_otherBlockchainTokenContract, _thisBlockchainTokenContract);
-    }
-
-    function removeDestAllowedToken(address _otherBlockchainTokenContract) onlyAuthorisedRelayer() external {
-        destAllowedTokens[_otherBlockchainTokenContract] = address(0);
-        DestAllowedTokenRemoved(_otherBlockchainTokenContract);
-    }
-
-
     /**
      * Transfer tokens from msg.sender to this contract.
      *
@@ -155,8 +143,4 @@ abstract contract Erc20HtlcTransferDest is Erc20HtlcTransferState, AdminVoting {
     );
     event DestTransferCompleted(bytes32 indexed commitment, bytes32 preimage);
     event DestTransferRefunded(bytes32 indexed commitment);
-
-    event DestAllowedTokenAdded(address otherBlockchainTokenContract, address thisBlockchainTokenContract);
-    event DestAllowedTokenRemoved(address tokenContract);
-
 }

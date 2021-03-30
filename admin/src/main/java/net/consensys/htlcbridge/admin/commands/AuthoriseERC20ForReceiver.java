@@ -1,6 +1,7 @@
 package net.consensys.htlcbridge.admin.commands;
 
 import net.consensys.htlcbridge.admin.Admin;
+import net.consensys.htlcbridge.transfer.TransferVoteTypes;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -44,7 +45,7 @@ public class AuthoriseERC20ForReceiver {
     TransactionManager tm;
     Credentials credentials;
     // A gas provider which indicates no gas is charged for transactions.
-    ContractGasProvider freeGasProvider =  new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
+    ContractGasProvider freeGasProvider = new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
 
     credentials = Credentials.create(privateKey);
 
@@ -55,15 +56,24 @@ public class AuthoriseERC20ForReceiver {
 
 
     try {
-      Erc20HtlcTransfer receiver = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
-      TransactionReceipt txr = receiver.addDestAllowedToken(remoteErc20ContractAddress, localErc20ContractAddress).send();
-      if (!txr.isStatusOK() ) {
+      BigInteger localErc20ContractAddressBigInt = addressAsBigInt(localErc20ContractAddress);
+      Erc20HtlcTransfer receiverContract = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
+      TransactionReceipt txr = receiverContract.proposeVote(
+          TransferVoteTypes.VOTE_ADD_DEST_ALLOWED_TOKEN.asBigInt(), remoteErc20ContractAddress, localErc20ContractAddressBigInt).send();
+      if (!txr.isStatusOK()) {
         throw new Exception("Unknown error processing request to authorise token contracts in receiver");
       }
     }
-    catch (Exception ex) {
-      LOG.error("Exception while authorising token contracts in receiver: {}", ex.getMessage());
-      throw ex;
+    catch(Exception ex){
+        LOG.error("Exception while authorising token contracts in receiver: {}", ex.getMessage());
+        throw ex;
     }
+  }
+
+  public static BigInteger addressAsBigInt(String address) {
+    if (address.startsWith("0x")) {
+      return new BigInteger(address.substring(2), 16);
+    }
+    return new BigInteger(address, 16);
   }
 }

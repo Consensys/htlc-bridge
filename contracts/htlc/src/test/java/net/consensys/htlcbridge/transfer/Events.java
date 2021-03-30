@@ -28,7 +28,8 @@ public class Events extends AbstractErc20HtlcTransferTest {
 
     // Add the token to the list of tokens that can be transferred.
     String tokenContractAddress = token1Erc20.getContractAddress();
-    TransactionReceipt txr = this.transferContract.addSourceAllowedToken(tokenContractAddress).send();
+    TransactionReceipt txr = this.transferContract.proposeVote(
+        TransferVoteTypes.VOTE_ADD_SOURCE_ALLOWED_TOKEN.asBigInt(), tokenContractAddress, BigInteger.ZERO).send();
     if (!txr.isStatusOK()) {
       throw new Exception("Status not OK: addAllowedToken");
     }

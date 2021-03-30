@@ -1,6 +1,7 @@
 package net.consensys.htlcbridge.admin.commands;
 
 import net.consensys.htlcbridge.admin.Admin;
+import net.consensys.htlcbridge.transfer.TransferVoteTypes;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -51,9 +52,10 @@ public class AuthoriseERC20ForTransfer {
     tm = new RawTransactionManager(web3j, credentials, bcId, RETRY, pollingInterval);
 
     try {
-      Erc20HtlcTransfer transfer = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
-      TransactionReceipt txr = transfer.addSourceAllowedToken(localErc20ContractAddress).send();
-      if (!txr.isStatusOK() ) {
+      Erc20HtlcTransfer transferContract = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
+      TransactionReceipt txr = transferContract.proposeVote(
+          TransferVoteTypes.VOTE_ADD_SOURCE_ALLOWED_TOKEN.asBigInt(), localErc20ContractAddress, BigInteger.ZERO).send();
+      if (!txr.isStatusOK()) {
         throw new Exception("Unknown error processing request to authorise token contract in Transfer");
       }
     }

@@ -22,9 +22,13 @@ import "../../../../voting/src/main/solidity/AdminVoting.sol";
 
 contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource, Initializable {
     uint256 constant VERSION = 20210325;
+
     uint16 constant VOTE_SOURCE_TIMELOCK = 100;
     uint16 constant VOTE_DEST_TIMELOCK = 101;
-
+    uint16 constant VOTE_ADD_SOURCE_ALLOWED_TOKEN = 102;
+    uint16 constant VOTE_REMOVE_SOURCE_ALLOWED_TOKEN = 103;
+    uint16 constant VOTE_ADD_DEST_ALLOWED_TOKEN = 104;
+    uint16 constant VOTE_REMOVE_DEST_ALLOWED_TOKEN = 105;
 
 
     function initialise(uint256 _sourceTimeLock, uint256 _destTimeLock) initializer()  external {
@@ -42,23 +46,49 @@ contract Erc20HtlcTransfer is Erc20HtlcTransferDest, Erc20HtlcTransferSource, In
     /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
     /************************************* INTERNAL FUNCTIONS BELOW HERE *************************************/
 
-    function proposeAppVote(uint16 _action, address _voteTarget, uint256 /* _additionalInfo1 */) internal pure override {
+    function proposeAppVote(uint16 _action, address _voteTarget, uint256 /* _additionalInfo1 */) internal view override {
         if (_action == VOTE_SOURCE_TIMELOCK) {
             require(_voteTarget == address(0), "AppVote: vote target must be zero when changing source timelock");
         }
         else if (_action == VOTE_DEST_TIMELOCK) {
             require(_voteTarget == address(0), "AppVote: vote target must be zero when changing destination timelock");
         }
+        else if (_action == VOTE_ADD_SOURCE_ALLOWED_TOKEN) {
+            require(!isSourceAllowedToken(_voteTarget), "AppVote: Can not add existing source token.");
+        }
+        else if (_action == VOTE_REMOVE_SOURCE_ALLOWED_TOKEN) {
+            require(isSourceAllowedToken(_voteTarget), "AppVote: Can not remove unknown source token.");
+        }
+        else if (_action == VOTE_ADD_DEST_ALLOWED_TOKEN) {
+            require(!isDestAllowedToken(_voteTarget), "AppVote: Can not add existing dest token.");
+        }
+        else if (_action == VOTE_REMOVE_DEST_ALLOWED_TOKEN) {
+            require(isDestAllowedToken(_voteTarget), "AppVote: Can not remove unknown dest token.");
+        }
         else {
             revert("AppVote: Unsupported vote action");
         }
     }
-    function actionAppVote(uint16 _action, address _voteTarget, uint256 /* _additionalInfo1 */) internal override {
+
+
+    function actionAppVote(uint16 _action, address _voteTarget, uint256 _additionalInfo1) internal override {
         if (_action == VOTE_SOURCE_TIMELOCK) {
-            sourceTimeLockPeriod = votes[_voteTarget].additionalInfo1;
+            sourceTimeLockPeriod = _additionalInfo1;
         }
         else if (_action == VOTE_DEST_TIMELOCK) {
-            destTimeLockPeriod = votes[_voteTarget].additionalInfo1;
+            destTimeLockPeriod = _additionalInfo1;
+        }
+        else if (_action == VOTE_ADD_SOURCE_ALLOWED_TOKEN) {
+            sourceAllowedTokens[_voteTarget] = true;
+        }
+        else if (_action == VOTE_REMOVE_SOURCE_ALLOWED_TOKEN) {
+            sourceAllowedTokens[_voteTarget] = false;
+        }
+        else if (_action == VOTE_ADD_DEST_ALLOWED_TOKEN) {
+            destAllowedTokens[_voteTarget] = address(uint160(_additionalInfo1));
+        }
+        else if (_action == VOTE_REMOVE_DEST_ALLOWED_TOKEN) {
+            delete destAllowedTokens[_voteTarget];
         }
     }
 }

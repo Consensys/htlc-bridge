@@ -14,6 +14,7 @@ import net.consensys.htlcbridge.common.RevertReason;
 import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
 import net.consensys.htlcbridge.relayer.Relayer;
 import net.consensys.htlcbridge.relayer.RelayerConfig;
+import net.consensys.htlcbridge.transfer.CommitmentCalculator;
 import net.consensys.htlcbridge.transfer.ReceiverInfo;
 import net.consensys.htlcbridge.transfer.TransferState;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
@@ -155,7 +156,7 @@ public class IntegrationTests {
       Credentials u = Credentials.create(user1PKey);
       LOG.info("User {}: New Transfer {} ERC tokens ({}) to Sidechain", u.getAddress(), i+1, TOK1_NAME);
       byte[][] result = newTransfer(true, user1PKey, erc20Tok1MainNet, amountToTransfer);
-      byte[] preimage = result[0];
+      byte[] preimageSalt = result[0];
       byte[] commitment = result[1];
       // TODO wait for destination confirmations before posting the preimage. Otherwise,
       // an attacker could reorganise the destination blockchain, removing the transaction with the commitment.
@@ -194,7 +195,7 @@ public class IntegrationTests {
       LOG.info("  User2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, user1PKey));
 
       LOG.info("User {}: Posting preimage to Sidechain", u.getAddress());
-      postPreimage(false, preimage, commitment, user1PKey);
+      postPreimage(false, preimageSalt, commitment, user1PKey);
 
       LOG.info(" Balances After Transfer on Sidechain for Token {}: {}", TOK1_NAME, erc20Tok1Sidechain);
       LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.transferSidechain));
@@ -471,9 +472,9 @@ public class IntegrationTests {
     Erc20HtlcTransfer transfer = Erc20HtlcTransfer.load(transferContractAddress, web3j, tm, freeGasProvider);
 
 
-    Bytes preimage = PRNG.getPublicRandomBytes32();
-    byte[] preimageBytes = preimage.toArray();
-    Bytes commitment = Hash.keccak256(preimage);
+    Bytes preimageSalt = PRNG.getPublicRandomBytes32();
+    byte[] preimageSaltBytes = preimageSalt.toArray();
+    Bytes commitment = CommitmentCalculator.calculate(preimageSalt, user.getAddress(), tokenContract, amountToTransfer);
     byte[] commitmentBytes = commitment.toArray();
 
     TransactionReceipt txr;
@@ -486,7 +487,7 @@ public class IntegrationTests {
     if (!txr.isStatusOK()) {
       throw new Exception("Status not OK: newTransferToOtherBlockchain");
     }
-    return new byte[][]{preimageBytes, commitmentBytes};
+    return new byte[][]{preimageSaltBytes, commitmentBytes};
   }
 
 
