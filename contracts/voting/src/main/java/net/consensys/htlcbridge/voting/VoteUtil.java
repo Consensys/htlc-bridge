@@ -16,19 +16,24 @@ package net.consensys.htlcbridge.voting;
 
 import java.math.BigInteger;
 
-public enum VoteTypes {
-  VOTE_NONE(0),                            // 0: MUST be the first value so it is the zero / deleted value.
-  VOTE_ADD_ADMIN(1),                       // 1
-  VOTE_REMOVE_ADMIN(2),                    // 2
-  VOTE_CHANGE_VOTING(3);                   // 3
+/**
+ * Utilities that are useful when working with the voting contract.
+ */
+public class VoteUtil {
 
-  private int val;
-
-  private VoteTypes(int value) {
-    this.val = value;
+  /**
+   * Additional Info is a uint256. Use this function to convert an address
+   * (a String), to a uint256 (a Big Integer), so that the address can be
+   * passed in as the Additional Info parameter.
+   *
+   * @param address
+   * @return
+   */
+  public static BigInteger addressAsBigInt(String address) {
+    if (address.startsWith("0x")) {
+      return new BigInteger(address.substring(2), 16);
+    }
+    return new BigInteger(address, 16);
   }
 
-  public BigInteger asBigInt() {
-    return BigInteger.valueOf(this.val);
-  }
 }

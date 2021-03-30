@@ -4,6 +4,8 @@ import net.consensys.htlcbridge.common.Hash;
 import net.consensys.htlcbridge.common.PRNG;
 import net.consensys.htlcbridge.common.RevertReason;
 import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
+import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
+import net.consensys.htlcbridge.voting.VoteUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.tuweni.bytes.Bytes;
@@ -154,6 +156,81 @@ public class HappyPath extends AbstractErc20HtlcTransferTest {
     balance = token1Erc20.balanceOf(this.credentials.getAddress()).send();
     assertEquals(TEST_SUPPLY, balance);
   }
+
+
+  // Receiver side of a transfer.
+  // Both calls are done with the same account. This won't happen in practice. The
+  // authentication is only on the first call, which must be made by a contract
+  // administrator.
+  @Test
+  public void destStandardTransfer() throws Exception {
+    BigInteger startingBalance = BigInteger.valueOf(100);
+    BigInteger amountToTransfer  = BigInteger.valueOf(7);
+    BigInteger finalBalance = startingBalance.subtract(amountToTransfer);
+
+    setupWeb3();
+
+    this.transferContract = Erc20HtlcTransfer.deploy(this.web3j, this.tm, this.freeGasProvider).send();
+    this.transferContract.initialise(TEST_TIMELOCK, BigInteger.valueOf(1000)).send();
+    String transferContractAddress = this.transferContract.getContractAddress();
+    ERC20PresetFixedSupply destToken1Erc20 = deployErc20Contract();
+    ERC20PresetFixedSupply srcToken1Erc20 = deployErc20Contract();
+
+    // Transfer ownership of a large set of the tokens to the transfer contract.
+    TransactionReceipt txr = destToken1Erc20.transfer(transferContractAddress, startingBalance).send();
+    assertTrue(txr.isStatusOK());
+
+    // Add the token to the list of tokens that can be transferred.
+    String srcTokenContractAddress = srcToken1Erc20.getContractAddress();
+    String destTokenContractAddress = destToken1Erc20.getContractAddress();
+    BigInteger destTokenContractAddressBig = VoteUtil.addressAsBigInt(destTokenContractAddress);
+    txr = this.transferContract.proposeVote(
+        TransferVoteTypes.VOTE_ADD_DEST_ALLOWED_TOKEN.asBigInt(), srcTokenContractAddress, destTokenContractAddressBig).send();
+    if (!txr.isStatusOK()) {
+      throw new Exception("Status not OK: addAllowedToken");
+    }
+
+    // Set-up HTLC / token transfer.
+    Bytes preimageSalt = PRNG.getPublicRandomBytes32();
+    byte[] preimageSaltBytes = preimageSalt.toArray();
+    Bytes commitment = CommitmentCalculator.calculate(preimageSalt, this.credentials.getAddress(), srcTokenContractAddress, amountToTransfer);
+    byte[] commitmentBytes = commitment.toArray();
+    try {
+      txr = this.transferContract.newTransferFromOtherBlockchain(srcTokenContractAddress, this.credentials.getAddress(), amountToTransfer, commitmentBytes).send();
+    } catch (TransactionException ex) {
+      LOG.error(RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason()));
+      throw ex;
+    }
+    if (!txr.isStatusOK()) {
+      throw new Exception("Status not OK: newTransferFromOtherBlockchain");
+    }
+
+    // Complete the transfer.
+    try {
+      txr = this.transferContract.finaliseTransferFromOtherBlockchain(commitmentBytes, preimageSaltBytes).send();
+    } catch (TransactionException ex) {
+      LOG.error(RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason()));
+      throw ex;
+    }
+    if (!txr.isStatusOK()) {
+      throw new Exception("Status not OK: finaliseTransferToOtherBlockchain");
+    }
+
+    // Check that the transfer contract believes the transfer is completed.
+    BigInteger transferState = this.transferContract.destTransferState(commitmentBytes).send();
+    LOG.info("Transfer State: {}: {}", TransferState.create(transferState), transferState);
+    assertTrue(TransferState.FINALILISED.equals(transferState));
+
+    // Check that the balance was transferred in the ERC 20 contract.
+    BigInteger balance = destToken1Erc20.balanceOf(transferContractAddress).send();
+    assertEquals(finalBalance, balance);
+
+    balance = destToken1Erc20.balanceOf(this.credentials.getAddress()).send();
+    assertEquals(TEST_SUPPLY.subtract(finalBalance), balance);
+  }
+
+
+
 
 
 }

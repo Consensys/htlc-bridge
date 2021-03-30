@@ -3,6 +3,7 @@ package net.consensys.htlcbridge.admin.commands;
 import net.consensys.htlcbridge.admin.Admin;
 import net.consensys.htlcbridge.transfer.TransferVoteTypes;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
+import net.consensys.htlcbridge.voting.VoteUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.web3j.crypto.Credentials;
@@ -56,7 +57,7 @@ public class AuthoriseERC20ForReceiver {
 
 
     try {
-      BigInteger localErc20ContractAddressBigInt = addressAsBigInt(localErc20ContractAddress);
+      BigInteger localErc20ContractAddressBigInt = VoteUtil.addressAsBigInt(localErc20ContractAddress);
       Erc20HtlcTransfer receiverContract = Erc20HtlcTransfer.load(receiverContractAddress, web3j, tm, freeGasProvider);
       TransactionReceipt txr = receiverContract.proposeVote(
           TransferVoteTypes.VOTE_ADD_DEST_ALLOWED_TOKEN.asBigInt(), remoteErc20ContractAddress, localErc20ContractAddressBigInt).send();
@@ -68,12 +69,5 @@ public class AuthoriseERC20ForReceiver {
         LOG.error("Exception while authorising token contracts in receiver: {}", ex.getMessage());
         throw ex;
     }
-  }
-
-  public static BigInteger addressAsBigInt(String address) {
-    if (address.startsWith("0x")) {
-      return new BigInteger(address.substring(2), 16);
-    }
-    return new BigInteger(address, 16);
   }
 }
