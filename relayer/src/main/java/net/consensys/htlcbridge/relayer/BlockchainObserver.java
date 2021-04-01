@@ -1,5 +1,6 @@
 package net.consensys.htlcbridge.relayer;
 
+import io.vertx.core.Vertx;
 import net.consensys.htlcbridge.common.DynamicGasProvider;
 import net.consensys.htlcbridge.relayer.data.DataStore;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
@@ -17,6 +18,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 
 public abstract class BlockchainObserver {
   private static final Logger LOG = LogManager.getLogger(BlockchainObserver.class);
+
+  Vertx vertx;
 
   protected int sourceConfirmations;
   protected int destConfirmations;
@@ -53,6 +56,10 @@ public abstract class BlockchainObserver {
 
     this.srcTransferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, sourceTm, sourceGasProvider);
     this.destTransferContract = Erc20HtlcTransfer.load(receiverContractAddress, destWeb3j, destTm, destGasProvider);
+  }
+
+  public void init(Vertx vertx) {
+    this.vertx = vertx;
   }
 
 

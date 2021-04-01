@@ -2,6 +2,7 @@ package net.consensys.htlcbridge.relayer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.Context;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServer;
 import io.vertx.ext.web.Router;
@@ -45,6 +46,19 @@ public class Relayer extends AbstractVerticle {
     this.port = config.apiPort;
 
     this.api = new RestAPI(this);
+  }
+
+  /**
+   * Initialise the verticle.<p>
+   * This is called by Vert.x when the verticle instance is deployed. Don't call it yourself.
+   * @param vertx  the deploying Vert.x instance
+   * @param context  the context of the verticle
+   */
+  @Override
+  public void init(Vertx vertx, Context context) {
+    super.init(vertx, context);
+    this.sourceBlockchainObserver.init(vertx);
+    this.destBlockchainObserver.init(vertx);
   }
 
 

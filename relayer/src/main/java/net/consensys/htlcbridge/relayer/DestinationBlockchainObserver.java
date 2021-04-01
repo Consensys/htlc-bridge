@@ -1,6 +1,7 @@
 package net.consensys.htlcbridge.relayer;
 
 import io.reactivex.Flowable;
+import io.vertx.core.Vertx;
 import net.consensys.htlcbridge.common.RevertReason;
 import net.consensys.htlcbridge.transfer.TransferState;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
@@ -21,7 +22,8 @@ public class DestinationBlockchainObserver extends BlockchainObserver {
       String sourcePKey, int sourceRetries, long sourceBcId, String sourceGasStrategy,
       String destUri, String receiverContractAddress, int destBlockPeriod, int destConfirmations,
       String destPKey, int destRetries, long destBcId, String destGasStrategy) throws Exception {
-    super(sourceUri, transferContractAddress, sourceBlockPeriod, sourceConfirmations,
+    super(
+        sourceUri, transferContractAddress, sourceBlockPeriod, sourceConfirmations,
         sourcePKey, sourceRetries, sourceBcId, sourceGasStrategy,
         destUri, receiverContractAddress, destBlockPeriod, destConfirmations,
         destPKey, destRetries, destBcId, destGasStrategy);
