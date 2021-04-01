@@ -1,13 +1,11 @@
 package net.consensys.htlcbridge.itest;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.vertx.core.Vertx;
 import net.consensys.htlcbridge.admin.commands.AuthoriseERC20ForReceiver;
 import net.consensys.htlcbridge.admin.commands.AuthoriseERC20ForTransfer;
 import net.consensys.htlcbridge.admin.commands.DeployERC20Contract;
 import net.consensys.htlcbridge.admin.commands.DeployTransferContract;
 import net.consensys.htlcbridge.common.DynamicGasProvider;
-import net.consensys.htlcbridge.common.Hash;
 import net.consensys.htlcbridge.common.KeyPairGen;
 import net.consensys.htlcbridge.common.PRNG;
 import net.consensys.htlcbridge.common.RevertReason;
@@ -33,7 +31,6 @@ import org.web3j.tx.gas.ContractGasProvider;
 import org.web3j.tx.gas.DefaultGasProvider;
 import org.web3j.tx.gas.StaticGasProvider;
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -64,12 +61,6 @@ public class IntegrationTests {
   public static final String TOK2_NAME = "Token 2";
   public static final String TOK2_SYMBOL = "Tok2";
   public static final long TOK2_TOTAL_SUPPLY = 1000;
-
-  Vertx vertx = Vertx.vertx();
-
-  public Relayer relayerToSidechain;
-  public Relayer relayerToSidechain2;
-  public Relayer relayerToMainNet;
 
   // Addresses of transfer and receiver contracts on sidechain and MainNet.
   String transferSidechain;
@@ -140,8 +131,8 @@ public class IntegrationTests {
     approveErc20Tokens(true, erc20Tok1MainNet, user1PKey, transferMainNet, user1Tok1StartingBalance);
 
     LOG.info("Launching MainNet to Sidechain Relayer");
-//    this.relayerToSidechain = launchRelayer(true, relayer1PKey);
-    writeRelayerConfigFile(true, relayer1PKey, 8080, "relayer1.config");
+    writeRelayerConfigFile(true, relayer1PKey, 8080, mainnetSourceTimeLock, "relayer1.config");
+//    launchRelayer("relayer1.config");
 //    this.relayerToSidechain.setRelayers(2, 0);
 
     for (int i = 0; i < 10; i++) {
@@ -204,9 +195,6 @@ public class IntegrationTests {
       LOG.info("  User2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, user1PKey));
     }
 
-    LOG.info("Shutting down MainNet to Sidechain Relayer");
-    shutdownRelayer(this.relayerToSidechain);
-    shutdownRelayer(this.relayerToSidechain2);
 
 
 //
@@ -390,34 +378,12 @@ public class IntegrationTests {
     }
   }
 
-  public Relayer launchRelayer(boolean fromMainNetToSidechain, String relayerPKey) {
-    String sourceBcUri = fromMainNetToSidechain ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
-    String sourceTransferContract = fromMainNetToSidechain ? transferMainNet : transferSidechain;
-    int sourceBlockPeriod = fromMainNetToSidechain ? MAINNET_BLOCK_PERIOD : SIDECHAIN_BLOCK_PERIOD;
-    int sourceConfirmations = fromMainNetToSidechain ? MAINNET_CONFIRMATIONS : SIDECHAIN_CONFIRMATIONS;
-    int sourceRetries = 5;
-    ContractGasProvider sourceGasProvider = new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
-    long sourceBcId = fromMainNetToSidechain ? Integer.valueOf(MAINNET_BLOCKCHAIN_ID) : Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID);
-
-
-    String destBcUri = fromMainNetToSidechain ? SIDECHAIN_BLOCKCHAIN_URI : MAINNET_BLOCKCHAIN_URI;
-    String destReceiverContract = fromMainNetToSidechain ? transferSidechain : transferMainNet;
-    int destBlockPeriod = fromMainNetToSidechain ? SIDECHAIN_BLOCK_PERIOD : MAINNET_BLOCK_PERIOD;
-    int destConfirmations = fromMainNetToSidechain ? SIDECHAIN_CONFIRMATIONS : MAINNET_CONFIRMATIONS;
-    int destRetries = 5;
-    ContractGasProvider destGasProvider = new StaticGasProvider(BigInteger.ZERO, DefaultGasProvider.GAS_LIMIT);
-    long destBcId = fromMainNetToSidechain ? Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID) : Integer.valueOf(MAINNET_BLOCKCHAIN_ID);
-
-    Relayer relayer = new Relayer(
-        sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
-        sourceRetries, sourceBcId, relayerPKey, sourceGasProvider,
-        destBcUri, destReceiverContract, destBlockPeriod, destConfirmations,
-        destRetries, destBcId, relayerPKey, destGasProvider);
-    this.vertx.deployVerticle(relayer);
-    return relayer;
+  public void launchRelayer(String configFileName) throws Exception {
+    Relayer.main(new String[]{configFileName});
   }
 
-  public void writeRelayerConfigFile(boolean fromMainNetToSidechain, String relayerPKey, int adminPort, String filename) throws IOException {
+
+  public void writeRelayerConfigFile(boolean fromMainNetToSidechain, String relayerPKey, int adminPort, long maxTimeLock, String filename) throws IOException {
     String sourceBcUri = fromMainNetToSidechain ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
     String sourceTransferContract = fromMainNetToSidechain ? transferMainNet : transferSidechain;
     int sourceBlockPeriod = fromMainNetToSidechain ? MAINNET_BLOCK_PERIOD : SIDECHAIN_BLOCK_PERIOD;
@@ -439,6 +405,7 @@ public class IntegrationTests {
         sourceRetries, sourceBcId, relayerPKey, sourceGasStrategy,
         destBcUri, destReceiverContract, destBlockPeriod, destConfirmations,
         destRetries, destBcId, relayerPKey, destGasStrategy,
+        maxTimeLock,
         adminPort
     );
     String result = new ObjectMapper().writeValueAsString(config);
@@ -576,17 +543,6 @@ public class IntegrationTests {
     }
     LOG.info(" Posting preimage successful");
   }
-
-  public void shutdownRelayer(Relayer relayer) {
-    this.vertx.undeploy(relayer.deploymentID());
-  }
-
-
-
-
-//  public void shutdownVertx() {
-//    this.vertx.close();
-//  }
 
   public static void main(String[] args) throws Exception {
     LOG.info("Start");

@@ -20,11 +20,12 @@ public class RelayerConfig {
   public String destRelayerPKey;
   public String destGasStrategy;
 
+  public long maxTimeLock;
+
   public int apiPort;
 
-  public RelayerConfig() {
-
-  }
+  // Default constructor needed for loading from JSON.
+  public RelayerConfig() { }
 
   public RelayerConfig(String sourceBcUri,
       String sourceTransferContract,
@@ -44,6 +45,8 @@ public class RelayerConfig {
       String destRelayerPKey,
       String destGasStrategy,
 
+      long maxTimeLock,
+
       int apiPort) {
     this.sourceBcUri = sourceBcUri;
     this.sourceTransferContract = sourceTransferContract;
@@ -62,6 +65,8 @@ public class RelayerConfig {
     this.destBcId = destBcId;
     this.destRelayerPKey = destRelayerPKey;
     this.destGasStrategy = destGasStrategy;
+
+    this.maxTimeLock = maxTimeLock;
 
     this.apiPort = apiPort;
   }

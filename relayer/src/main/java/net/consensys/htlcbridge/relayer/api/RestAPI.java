@@ -1,11 +1,11 @@
 package net.consensys.htlcbridge.relayer.api;
 
 import io.vertx.core.Future;
-import io.vertx.core.Vertx;
-import io.vertx.core.http.HttpServer;
-import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.Json;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.Router;
+import io.vertx.ext.web.RoutingContext;
+import io.vertx.ext.web.handler.BodyHandler;
 import net.consensys.htlcbridge.relayer.Relayer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -13,89 +13,81 @@ import org.apache.logging.log4j.Logger;
 public class RestAPI {
   private static final Logger LOG = LogManager.getLogger(RestAPI.class);
 
-  Vertx vertx;
-  int port;
+  Relayer relayer;
 
-  int counter = 0;
-
-  public RestAPI(Vertx vertx, int port) {
-    this.vertx = vertx;
-    this.port = port;
+  public RestAPI(Relayer relayer) {
+    this.relayer = relayer;
   }
 
-  public void createAPI() {
+  public void createAPI(Router router) {
+    router.route("/conf/slot*").handler(BodyHandler.create());
+    router.post("/conf/slot").handler(this::configSlot);
+    router.get("/conf/slot").handler(this::getConfigSlot);
 
-    vertx.createHttpServer()
-        .requestHandler(req -> {
-          System.out.println("Request #" + counter++ +
-              " from " + req.remoteAddress().host());
-          req.response().end("Hello from Coderland!");
-        })
-        .listen(8080);
+    // TODO block confirmations
+    // TODO block periods
 
-//    HttpServer server = this.vertx.createHttpServer();
-//
-//    Router router = Router.router(this.vertx);
-//
-//    router.route().handler(ctx -> {
-//
-//      // This handler will be called for every request
-//      HttpServerResponse response = ctx.response();
-//      response.putHeader("content-type", "text/plain");
-//
-//      // Write to the response and end it
-//      response.end("Hello World from Vert.x-Web!");
-//    });
-//
-//    server.requestHandler(router).listen(this.port);
+    router
+        .get("/ver")
+        // this handler will ensure that the response is serialized to json
+        // the content type is set to "application/json"
+        .respond(
+            ctx -> Future.succeededFuture(new JsonObject().put("version", "1")));
 
-//
-//
-//    HttpServer server = this.vertx.createHttpServer();
-//
-//    Router router = Router.router(this.vertx);
-//
-////    router.route().handler(ctx -> {
-////
-////      // This handler will be called for every request
-////      HttpServerResponse response = ctx.response();
-////      response.putHeader("content-type", "text/plain");
-////
-////      // Write to the response and end it
-////      response.end("Hello World from Vert.x-Web!");
-////    });
-////
-//
-////    router.get("/").handler(ctx -> {
-////      LOG.info("Request received");
-////    });
-//
-//    router
-//        .get("/some/path")
-//        // this handler will ensure that the response is serialized to json
-//        // the content type is set to "application/json"
-//        .respond(
-//            ctx -> Future.succeededFuture(new JsonObject().put("hello", "world")));
-//
-//    router
-//        .get("/ver")
-//        // this handler will ensure that the response is serialized to json
-//        // the content type is set to "application/json"
-//        .respond(
-//            ctx -> Future.succeededFuture(new JsonObject().put("version", "1")));
-//
-////    router
-////        .get("/some/path")
-////        // this handler will ensure that the Pojo is serialized to json
-////        // the content type is set to "application/json"
-////        .respond(
-////            ctx -> Future.succeededFuture(new Pojo()));
-//
-//    server.requestHandler(router).listen(this.port);
-
-    LOG.info("Listening on port {}", this.port);
   }
 
 
+  private void configSlot(RoutingContext routingContext) {
+    String body = routingContext.getBodyAsString();
+    SlotConfig conf;
+    try {
+      conf = Json.decodeValue(body, SlotConfig.class);
+    } catch (Throwable th) {
+      LOG.error("Config slot: JSON format issue: {}", th.toString());
+      routingContext.response()
+          .setStatusCode(400)
+          .putHeader("content-type", "application/json; charset=utf-8")
+          .end(new JsonObject().put("Issue", "JSON Encoding Error").toString());
+      return;
+    }
 
+    int numRelayers = conf.numRelayers;
+    int relayerOffset = conf.relayerOffset;
+    if (numRelayers <= 0) {
+      LOG.error("Config slot: Ignoring invalid request (numRelayers negative): Num Relayers: {}, Relayer Offset: {}", numRelayers, relayerOffset);
+      routingContext.response()
+          .setStatusCode(400)
+          .putHeader("content-type", "application/json; charset=utf-8")
+          .end(new JsonObject().put("Issue", "numRelayers must be a greater than zero").toString());
+      return;
+    }
+    if (relayerOffset < 0 || relayerOffset >= numRelayers) {
+      LOG.error("Config slot: Ignoring invalid request (relayOffset invalid): Num Relayers: {}, Relayer Offset: {}", numRelayers, relayerOffset);
+      routingContext.response()
+          .setStatusCode(400)
+          .putHeader("content-type", "application/json; charset=utf-8")
+          .end(new JsonObject().put("Issue", "relayOffset must be zero or more and less than numRelayers").toString());
+      return;
+    }
+
+    LOG.info("Config slot: Num Relayers: {}, Relayer Offset: {}", numRelayers, relayerOffset);
+    this.relayer.sourceBlockchainObserver.setRelayers(numRelayers, relayerOffset);
+    this.relayer.destBlockchainObserver.setRelayers(numRelayers, relayerOffset);
+
+    routingContext.response()
+        .setStatusCode(201)
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .end(Json.encodePrettily(conf));
+  }
+
+  private void getConfigSlot(RoutingContext routingContext) {
+    int numRelayers = this.relayer.sourceBlockchainObserver.getNumRelayers();
+    int relayerOffset = this.relayer.sourceBlockchainObserver.getRelayerOffset();
+    SlotConfig conf = new SlotConfig(numRelayers, relayerOffset);
+
+    routingContext.response()
+        .setStatusCode(201)
+        .putHeader("content-type", "application/json; charset=utf-8")
+        .end(Json.encodePrettily(conf));
+  }
 }
