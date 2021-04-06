@@ -63,7 +63,7 @@ public class SourceBlockchainObserver extends BlockchainObserver {
       futureEthBlockNumber.handleAsync((ethBlockNumber, th) -> {
         context.runOnContext(event -> {
           if (th == null) {
-            LOG.info("CheckNewBlock: Latest block: {}", ethBlockNumber.getBlockNumber());
+            //LOG.info("CheckNewBlock: Latest block: {}", ethBlockNumber.getBlockNumber());
             processNextBlock(ethBlockNumber);
             futureEthBlockNumber.complete(null);
           } else {

@@ -61,7 +61,7 @@ public class DestinationBlockchainObserver extends BlockchainObserver {
       long currentBlockNumber = blockNumber.longValue();
 
       // Check for events between last block checked and current block - number of confirmations
-      if (this.lastBlockChecked > currentBlockNumber - this.destConfirmations) {
+      if (this.lastBlockChecked + 1 > currentBlockNumber - this.destConfirmations) {
         LOG.info("No new blocks to process");
         return;
       }
