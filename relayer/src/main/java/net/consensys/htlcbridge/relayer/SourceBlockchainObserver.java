@@ -58,62 +58,74 @@ public class SourceBlockchainObserver extends BlockchainObserver {
 //      return;
 //    }
 
-    try {
-      EthBlockNumber ethBlockNumber = this.sourceWeb3j.ethBlockNumber().send();
-      BigInteger blockNumber = ethBlockNumber.getBlockNumber();
-      long currentBlockNumber = blockNumber.longValue();
-
-      // Check for events between last block checked and current block - number of confirmations
-      long endBlockNumber = currentBlockNumber - this.sourceConfirmations;
-      if (this.lastBlockChecked > endBlockNumber) {
-        LOG.info("Current Block: {}. No new blocks to process", blockNumber);
-        return;
-      }
-
-      BigInteger startBlockNum = BigInteger.valueOf(this.lastBlockChecked + 1);
-      DefaultBlockParameter startBlock = DefaultBlockParameter.valueOf(startBlockNum);
-      BigInteger endBlockNum = BigInteger.valueOf(endBlockNumber);
-      DefaultBlockParameter endBlock = DefaultBlockParameter.valueOf(endBlockNum);
-      LOG.info("Current Block: {}. Requesting events from blocks {} to {}", currentBlockNumber, startBlockNum, endBlockNum);
-      Flowable<Erc20HtlcTransfer.SourceTransferInitEventResponse> transferInitEvents =
-          this.srcTransferContract.sourceTransferInitEventFlowable(startBlock, endBlock);
-
-      transferInitEvents.subscribe(new io.reactivex.functions.Consumer<Erc20HtlcTransfer.SourceTransferInitEventResponse>() {
-        @Override
-        public void accept(Erc20HtlcTransfer.SourceTransferInitEventResponse txInitEvent) throws Exception {
-          String commitmentS = Bytes.wrap(txInitEvent.commitment).toHexString();
-
-          if (txInitEvent.amount.compareTo(BigInteger.ZERO) == 0) {
-            LOG.info("Ignoring transfer ({}) as amount is 0", commitmentS);
+      CompletableFuture<EthBlockNumber> futureEthBlockNumber = this.sourceWeb3j.ethBlockNumber().sendAsync();
+      Context context = vertx.getOrCreateContext();
+      futureEthBlockNumber.handleAsync((ethBlockNumber, th) -> {
+        context.runOnContext(event -> {
+          if (th == null) {
+            LOG.info("CheckNewBlock: Latest block: {}", ethBlockNumber.getBlockNumber());
+            processNextBlock(ethBlockNumber);
+            futureEthBlockNumber.complete(null);
+          } else {
+            LOG.error("Get block number failed: Error: {}", th.toString());
+            futureEthBlockNumber.completeExceptionally(th);
           }
-
-          // Check whether another relayer has already submitted this transfer.
-          CompletableFuture<Boolean> futureTransferExists = destTransferContract.destTransferExists(txInitEvent.commitment).sendAsync();
-          Context context = vertx.getOrCreateContext();
-          futureTransferExists.handleAsync((transferExists, th) -> {
-            context.runOnContext(event -> {
-              if (th == null) {
-                if (transferExists) {
-                  LOG.info("Ignoring transfer ({}) already communicated to destination", commitmentS);
-                } else {
-                  postCommitmentToDestination(txInitEvent, commitmentS);
-                }
-                futureTransferExists.complete(null);
-              } else {
-                LOG.warn("Error processing DestTransferExists: Commitment: {}, Error: {}", commitmentS, th.toString());
-                futureTransferExists.completeExceptionally(th);
-              }
-            });
-            return null;
-          });
-        }
+        });
+        return null;
       });
+  }
 
-      this.lastBlockChecked = endBlockNumber;
+  private void processNextBlock(EthBlockNumber ethBlockNumber) {
+    BigInteger blockNumber = ethBlockNumber.getBlockNumber();
+    long currentBlockNumber = blockNumber.longValue();
 
-    } catch (Exception ex) {
-      throw new Error(ex);
+    // Check for events between last block checked and current block - number of confirmations
+    long endBlockNumber = currentBlockNumber - this.sourceConfirmations;
+    if (this.lastBlockChecked + 1 > endBlockNumber) {
+      LOG.info("Current Block: {}. No new blocks to process", blockNumber);
+      return;
     }
+
+    BigInteger startBlockNum = BigInteger.valueOf(this.lastBlockChecked + 1);
+    DefaultBlockParameter startBlock = DefaultBlockParameter.valueOf(startBlockNum);
+    BigInteger endBlockNum = BigInteger.valueOf(endBlockNumber);
+    DefaultBlockParameter endBlock = DefaultBlockParameter.valueOf(endBlockNum);
+    LOG.info("Current Block: {}. Requesting events from blocks {} to {}", currentBlockNumber, startBlockNum, endBlockNum);
+    Flowable<Erc20HtlcTransfer.SourceTransferInitEventResponse> transferInitEvents =
+        this.srcTransferContract.sourceTransferInitEventFlowable(startBlock, endBlock);
+
+    transferInitEvents.subscribe(new io.reactivex.functions.Consumer<Erc20HtlcTransfer.SourceTransferInitEventResponse>() {
+      @Override
+      public void accept(Erc20HtlcTransfer.SourceTransferInitEventResponse txInitEvent) throws Exception {
+        String commitmentS = Bytes.wrap(txInitEvent.commitment).toHexString();
+
+        if (txInitEvent.amount.compareTo(BigInteger.ZERO) == 0) {
+          LOG.info("Ignoring transfer ({}) as amount is 0", commitmentS);
+        }
+
+        // Check whether another relayer has already submitted this transfer.
+        CompletableFuture<Boolean> futureTransferExists = destTransferContract.destTransferExists(txInitEvent.commitment).sendAsync();
+        Context context = vertx.getOrCreateContext();
+        futureTransferExists.handleAsync((transferExists, th) -> {
+          context.runOnContext(event -> {
+            if (th == null) {
+              if (transferExists) {
+                LOG.info("Ignoring transfer ({}) already communicated to destination", commitmentS);
+              } else {
+                postCommitmentToDestination(txInitEvent, commitmentS);
+              }
+              futureTransferExists.complete(null);
+            } else {
+              LOG.warn("Error processing DestTransferExists: Commitment: {}, Error: {}", commitmentS, th.toString());
+              futureTransferExists.completeExceptionally(th);
+            }
+          });
+          return null;
+        });
+      }
+    });
+
+    this.lastBlockChecked = endBlockNumber;
   }
 
   private void postCommitmentToDestination(Erc20HtlcTransfer.SourceTransferInitEventResponse txInitEvent, String commitmentS) {
