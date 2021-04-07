@@ -1,3 +1,17 @@
+/*
+ * Copyright 2021 ConsenSys Software Inc
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
 package net.consensys.htlcbridge.relayer;
 
 import io.reactivex.Flowable;
@@ -30,64 +44,22 @@ public class SourceBlockchainObserver extends BlockchainObserver {
         destUri, receiverContractAddress, destBlockPeriod, destConfirmations,
         destPKey, destRetries, destBcId, destGasStrategy);
 
-    setLackBlockCheckedInitialValue(sourceBlockPeriod);
-  }
-
-  private void setLackBlockCheckedInitialValue(int sourceBlockPeriod) throws Exception {
-    BigInteger timeLockPeriod = this.srcTransferContract.sourceTimeLockPeriod().send();
-    BigInteger currentBlockNumber = this.sourceWeb3j.ethBlockNumber().send().getBlockNumber();
-    long earliestBlockToCheck = currentBlockNumber.longValue() - (timeLockPeriod.longValue() * 1000 / sourceBlockPeriod);
-    long lastBlockCheckedL;
-    if (earliestBlockToCheck < 0) {
-      lastBlockCheckedL = -1;
-    }
-    else {
-      lastBlockCheckedL = earliestBlockToCheck;
-    }
-    LOG.info("Source Observer: Initial Last Block Checked: Current: {}, TimeLock: {} Period: {}, Earliest: {}, Last: {}",
-        currentBlockNumber, timeLockPeriod, sourceBlockPeriod, earliestBlockToCheck, lastBlockCheckedL);
-    this.lastBlockChecked = new AtomicLong(lastBlockCheckedL);
+    this.isSourceObserver = true;
+    setLackBlockCheckedInitialValue(sourceBlockPeriod, sourceConfirmations, this.srcTransferContract, this.sourceWeb3j);
   }
 
 
   public void checkNewBlock() {
-      CompletableFuture<EthBlockNumber> futureEthBlockNumber = this.sourceWeb3j.ethBlockNumber().sendAsync();
-      Context context = vertx.getOrCreateContext();
-      futureEthBlockNumber.handle((ethBlockNumber, th) -> {
-        context.runOnContext(event -> {
-          if (th == null) {
-            processNextBlock(ethBlockNumber);
-          } else {
-            LOG.error("Get block number failed: Error: {}", th.toString());
-          }
-        });
-        return null;
-      });
+    checkNewBlock(this.sourceWeb3j);
   }
 
-  private void processNextBlock(EthBlockNumber ethBlockNumber) {
-    BigInteger blockNumber = ethBlockNumber.getBlockNumber();
-    long currentBlockNumber = blockNumber.longValue();
-
-    // Check for events between last block checked and current block - number of confirmations
-    long endBlockNumber = currentBlockNumber - this.sourceConfirmations;
-    boolean successful;
-    long startBlockNumber;
-    do {
-      long theLastBlockChecked = this.lastBlockChecked.get();
-      startBlockNumber = theLastBlockChecked + 1;
-      if (startBlockNumber > endBlockNumber) {
-        LOG.info("Current Block: {}. No new blocks to process", blockNumber);
-        return;
-      }
-      // Update lastBlockChecked, indicating that the block(s) lastBlockChecked and before are
-      // being of will be processed.
-      successful = this.lastBlockChecked.compareAndSet(theLastBlockChecked, endBlockNumber);
-    } while (!successful);
-
-    LOG.info("Current Block: {}. Processing blocks {} to {}", currentBlockNumber, startBlockNumber, endBlockNumber);
-    DefaultBlockParameter startBlock = DefaultBlockParameter.valueOf(BigInteger.valueOf(startBlockNumber));
-    DefaultBlockParameter endBlock = DefaultBlockParameter.valueOf(BigInteger.valueOf(endBlockNumber));
+  protected void processNextBlock(EthBlockNumber ethBlockNumber) {
+    DefaultBlockParameter[] result = determineIfBlockToProcess(ethBlockNumber, this.sourceConfirmations);
+    if (result == null) {
+      return;
+    }
+    DefaultBlockParameter startBlock = result[0];
+    DefaultBlockParameter endBlock = result[1];
     Flowable<Erc20HtlcTransfer.SourceTransferInitEventResponse> transferInitEvents =
         this.srcTransferContract.sourceTransferInitEventFlowable(startBlock, endBlock);
 
@@ -149,8 +121,6 @@ public class SourceBlockchainObserver extends BlockchainObserver {
       });
       return null;
     });
-
-
   }
 
 
