@@ -67,11 +67,11 @@ public class Relayer extends AbstractVerticle {
     LOG.info("Started");
 
     // Check for new blocks each 100ms.
-    this.vertx.setPeriodic(100, counter -> {
+    this.vertx.setPeriodic(1000, counter -> {
       this.sourceBlockchainObserver.checkNewBlock();
     });
 
-    this.vertx.setPeriodic(100, counter -> {
+    this.vertx.setPeriodic(5000, counter -> {
       this.destBlockchainObserver.checkNewBlock();
     });
 

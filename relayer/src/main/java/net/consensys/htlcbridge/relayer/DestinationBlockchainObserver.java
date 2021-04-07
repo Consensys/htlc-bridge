@@ -17,6 +17,9 @@ import java.math.BigInteger;
 public class DestinationBlockchainObserver extends BlockchainObserver {
   private static final Logger LOG = LogManager.getLogger(DestinationBlockchainObserver.class);
 
+  // TODO move to async when source working.
+  long lastBlockChecked1;
+
   public DestinationBlockchainObserver(
       String sourceUri, String transferContractAddress, int sourceBlockPeriod, int sourceConfirmations,
       String sourcePKey, int sourceRetries, long sourceBcId, String sourceGasStrategy,
@@ -35,10 +38,10 @@ public class DestinationBlockchainObserver extends BlockchainObserver {
     BigInteger currentBlockNumber = this.destWeb3j.ethBlockNumber().send().getBlockNumber();
     long earliestBlockToCheck = currentBlockNumber.longValue() - (timeLockPeriod.longValue() * 1000 / destBlockPeriod);
     if (earliestBlockToCheck < 0) {
-      this.lastBlockChecked = -1;
+      this.lastBlockChecked1 = -1;
     }
     else {
-      this.lastBlockChecked = earliestBlockToCheck;
+      this.lastBlockChecked1 = earliestBlockToCheck;
     }
     LOG.info("Destination Observer: Initial Last Block Checked: Current: {}, TimeLock: {} Period: {}, Earliest: {}, Last: {}",
         currentBlockNumber, timeLockPeriod, destBlockPeriod, earliestBlockToCheck, this.lastBlockChecked);
@@ -61,12 +64,12 @@ public class DestinationBlockchainObserver extends BlockchainObserver {
       long currentBlockNumber = blockNumber.longValue();
 
       // Check for events between last block checked and current block - number of confirmations
-      if (this.lastBlockChecked + 1 > currentBlockNumber - this.destConfirmations) {
+      if (this.lastBlockChecked1 + 1 > currentBlockNumber - this.destConfirmations) {
         LOG.info("No new blocks to process");
         return;
       }
 
-      BigInteger startBlockNum = BigInteger.valueOf(this.lastBlockChecked + 1);
+      BigInteger startBlockNum = BigInteger.valueOf(this.lastBlockChecked1 + 1);
       DefaultBlockParameter startBlock = DefaultBlockParameter.valueOf(startBlockNum);
       long endBlockNumber = currentBlockNumber - this.destConfirmations;
       BigInteger endBlockNum = BigInteger.valueOf(endBlockNumber);
@@ -100,7 +103,7 @@ public class DestinationBlockchainObserver extends BlockchainObserver {
         }
       });
 
-      this.lastBlockChecked = endBlockNumber;
+      this.lastBlockChecked1 = endBlockNumber;
 
     } catch (Exception ex) {
       throw new Error(ex);

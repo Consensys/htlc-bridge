@@ -71,8 +71,8 @@ public class RestAPI {
     }
 
     LOG.info("Config slot: Num Relayers: {}, Relayer Offset: {}", numRelayers, relayerOffset);
-    this.relayer.sourceBlockchainObserver.setRelayers(numRelayers, relayerOffset);
-    this.relayer.destBlockchainObserver.setRelayers(numRelayers, relayerOffset);
+//    this.relayer.sourceBlockchainObserver.setRelayers(numRelayers, relayerOffset);
+//    this.relayer.destBlockchainObserver.setRelayers(numRelayers, relayerOffset);
 
     routingContext.response()
         .setStatusCode(201)
@@ -81,8 +81,8 @@ public class RestAPI {
   }
 
   private void getConfigSlot(RoutingContext routingContext) {
-    int numRelayers = this.relayer.sourceBlockchainObserver.getNumRelayers();
-    int relayerOffset = this.relayer.sourceBlockchainObserver.getRelayerOffset();
+    int numRelayers = 1; // this.relayer.sourceBlockchainObserver.getNumRelayers();
+    int relayerOffset = 0; //this.relayer.sourceBlockchainObserver.getRelayerOffset();
     SlotConfig conf = new SlotConfig(numRelayers, relayerOffset);
 
     routingContext.response()

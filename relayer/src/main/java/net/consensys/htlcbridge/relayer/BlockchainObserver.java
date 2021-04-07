@@ -2,7 +2,6 @@ package net.consensys.htlcbridge.relayer;
 
 import io.vertx.core.Vertx;
 import net.consensys.htlcbridge.common.DynamicGasProvider;
-import net.consensys.htlcbridge.relayer.data.DataStore;
 import net.consensys.htlcbridge.transfer.soliditywrappers.Erc20HtlcTransfer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -15,27 +14,23 @@ import org.web3j.tx.gas.ContractGasProvider;
 
 import java.math.BigInteger;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicLong;
 
 public abstract class BlockchainObserver {
   private static final Logger LOG = LogManager.getLogger(BlockchainObserver.class);
 
   Vertx vertx;
 
-  protected int sourceConfirmations;
-  protected int destConfirmations;
+  protected final int sourceConfirmations;
+  protected final int destConfirmations;
 
-  protected Erc20HtlcTransfer srcTransferContract;
-  protected Erc20HtlcTransfer destTransferContract;
-  protected Web3j sourceWeb3j;
-  protected Web3j destWeb3j;
+  protected final Erc20HtlcTransfer srcTransferContract;
+  protected final Erc20HtlcTransfer destTransferContract;
+  protected final Web3j sourceWeb3j;
+  protected final Web3j destWeb3j;
 
-  protected DataStore dataStore = DataStore.getInstance();
-
-  protected long lastBlockChecked;
-
-  protected int numRelayers = 1;
-  protected int relayerOffset = 0;
-//  int relayCounter = 0;
+  // TODO volitile or atomic reference compareAndUpdate
+  protected AtomicLong lastBlockChecked;
 
   public BlockchainObserver(
       String sourceUri, String transferContractAddress, int sourceBlockPeriod, int sourceConfirmations,
@@ -63,50 +58,6 @@ public abstract class BlockchainObserver {
   }
 
 
-  public void setRelayers(int numRelayers, int relayerOffset) {
-    this.numRelayers = numRelayers;
-    this.relayerOffset = relayerOffset;
-  }
-
-  public int getNumRelayers() {
-    return this.numRelayers;
-  }
-
-  public int getRelayerOffset() {
-    return this.relayerOffset;
-  }
-
-//  public boolean fairnessSkip() {
-//    //
-//
-//  }
-//
-//  /**
-//   * Ethereum MainNet has probabilistic finality, whereas the Sidechain has immediate finality.
-//   * The block period for Ethereum MainNet is 12 seconds and for the Sidechain is 2 seconds.
-//   *
-//   *
-//   * For the destination:
-//   *
-//   * Blockchain's Block Period
-//   * numRelayers is used as the number of seconds to do the algorithm over.
-//   * relayerOffset is the
-//   *
-//   *
-//   * @return
-//   */
-//  public long determineFairnessWait() {
-//
-//
-//    long relayCounter = System.currentTimeMillis() / 1000;
-////    relayCounter = relayCounter % this.numRelayers;
-////    if (relayCounter != this.relayerOffset) {
-////      LOG.info("Source Blockchain Observer fairness skipping: {}: {} of {}", this.relayerOffset, relayCounter, this.numRelayers);
-////      return;
-////    }
-//
-//  }
-//
 
   public abstract void checkNewBlock();
 }
