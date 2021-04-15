@@ -1,0 +1,86 @@
+version: "3.8"
+services:
+  besu40:
+    image: hyperledger/besu:latest
+    container_name: besu40
+    networks:
+      - shared
+    ports:
+      - "8400:8400"
+    volumes:
+      - type: bind
+        source: /Users/peterrobinson/dev/htlc-bridge/itest/build/data40
+        target: /data
+      - type: bind
+        source: /Users/peterrobinson/dev/htlc-bridge/itest/config
+        target: /config
+    command:
+      - "--min-gas-price=0"
+      - "--miner-extra-data=0x0000000000000000000000000000000000000000000000000000000000003100"
+      - "--rpc-http-enabled"
+      - "--rpc-http-api=ETH,NET,WEB3"
+      - "--rpc-http-port=8400"
+      - "--logging=info"
+      - "--revert-reason-enabled=true"
+      - "--data-path=/data"
+      - "--genesis-file=/config/genesis40.json"
+      - "--goquorum-compatibility-enabled=false"
+
+  besu31:
+    image: hyperledger/besu:latest
+    container_name: besu31
+    networks:
+      - shared
+    ports:
+      - "8310:8310"
+    volumes:
+      - type: bind
+        source: /Users/peterrobinson/dev/htlc-bridge/itest/build/data40
+        target: /data
+      - type: bind
+        source: /Users/peterrobinson/dev/htlc-bridge/itest/config
+        target: /config
+    command:
+      - "--min-gas-price=0"
+      - "--miner-extra-data=0x0000000000000000000000000000000000000000000000000000000000003100"
+      - "--rpc-http-enabled"
+      - "--rpc-http-api=ETH,NET,WEB3"
+      - "--rpc-http-port=8310"
+      - "--logging=info"
+      - "--revert-reason-enabled=true"
+      - "--data-path=/data"
+      - "--genesis-file=/config/genesis31.json"
+      - "--goquorum-compatibility-enabled=false"
+
+  relayer1:
+    build:
+      context: ./relayer
+      args:
+        apiport: 8080
+    container_name: relayer1
+    networks:
+      - shared
+    ports:
+      - "8080:8080"
+
+  itest:
+    build:
+      context: .
+      dockerfile: Dockerfile-itest
+    container_name: itest
+    networks:
+      - shared
+    depends_on:
+      - besu31
+      - besu40
+      - relayer1
+
+
+#   --config-file=${nodePath}/config.toml --data-path=${nodePath}
+#  p2p-port = 30310
+#      - "--p2p-enabled=false"
+
+networks:
+  shared:
+    name: shared
+    external: true

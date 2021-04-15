@@ -10,7 +10,20 @@ repositories {
     mavenCentral()
 }
 
+sourceSets {
+    intTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+
+configurations {
+    intTestImplementation.extendsFrom implementation
+    intTestRuntimeOnly.extendsFrom runtimeOnly
+}
+
 dependencies {
+    intTestImplementation 'junit:junit:4.13'
     compile group: 'junit', name: 'junit', version: '4.12'
 
     compile project (path: ':common')
@@ -29,3 +42,14 @@ dependencies {
     compile 'io.vertx:vertx-core:4.0.3'
 
 }
+
+tasks.register('integrationTest', Test) {
+    description = 'Runs integration tests.'
+    group = 'verification'
+
+    testClassesDirs = sourceSets.intTest.output.classesDirs
+    classpath = sourceSets.intTest.runtimeClasspath
+    shouldRunAfter test
+}
+
+check.dependsOn integrationTest

@@ -1,4 +1,4 @@
-package net.consensys.htlcbridge.itest;
+package net.consensys.htlcbridge.itest.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import net.consensys.htlcbridge.admin.commands.AuthoriseERC20ForReceiver;
@@ -9,6 +9,7 @@ import net.consensys.htlcbridge.common.DynamicGasProvider;
 import net.consensys.htlcbridge.common.KeyPairGen;
 import net.consensys.htlcbridge.common.PRNG;
 import net.consensys.htlcbridge.common.RevertReason;
+import net.consensys.htlcbridge.itest.IntegrationTests;
 import net.consensys.htlcbridge.openzeppelin.soliditywrappers.ERC20PresetFixedSupply;
 import net.consensys.htlcbridge.relayer.Relayer;
 import net.consensys.htlcbridge.relayer.RelayerConfig;
@@ -30,17 +31,22 @@ import org.web3j.tx.TransactionManager;
 import org.web3j.tx.gas.ContractGasProvider;
 import org.web3j.tx.gas.DefaultGasProvider;
 import org.web3j.tx.gas.StaticGasProvider;
-import static org.junit.Assert.assertEquals;
 
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.math.BigInteger;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 
-public class IntegrationTests {
-  private static final Logger LOG = LogManager.getLogger(IntegrationTests.class);
+import static org.junit.Assert.assertEquals;
+
+public abstract class IntegrationTestBase {
+  private static final Logger LOG = LogManager.getLogger(IntegrationTestBase.class);
 
   public static final String MAINNET_BLOCKCHAIN_URI = "http://127.0.0.1:8400/";
   public static final String MAINNET_BLOCKCHAIN_ID = "40";
@@ -53,6 +59,11 @@ public class IntegrationTests {
   public static final int SIDECHAIN_CONFIRMATIONS = 1;
 
   public static final int API_PORT = 8080;
+
+  public static final long DEFAULT_MAINNET_SOURCE_TIME_LOCK = 24 * 60 * 60; // 24 hours.
+  public static final long DEFAULT_SIDECHAIN_DESTINATION_TIME_LOCK = 12 * 60 * 60; // 12 hours.
+  public static final long DEFAULT_MAINNET_DESTINATION_TIME_LOCK = 12 * 60 * 60; // 24 hours.
+  public static final long DEFAULT_SIDECHAIN_SOURCE_TIME_LOCK = 24 * 60 * 60; // 12 hours.
 
 
   public static final String TOK1_NAME = "Token 1";
@@ -67,207 +78,48 @@ public class IntegrationTests {
   String transferSidechain;
   String transferMainNet;
 
-  public static final int NUM_USERS = 3;
-  public static final int NUM_TRANFERS = 10;
   String[] userPKeys;
   String[] userAddresses;
 
-  public static final long USER_TOK_1_BASE_STARTING_BALANCE = 100;
-  public static final long USER_TOK_2_BASE_STARTING_BALANCE = 80;
 
-  public static final boolean TOKEN2 = false;
 
-  public IntegrationTests() {
-
+  public String createPrivateKey() {
+    return new KeyPairGen().generateKeyPairGetPrivateKey();
   }
 
-  public void runTest() throws Exception {
-    String bankerPKey = new KeyPairGen().generateKeyPairGetPrivateKey();
-    String relayer1PKey = new KeyPairGen().generateKeyPairGetPrivateKey();
-//    String relayer2PKey = new KeyPairGen().generateKeyPairGetPrivateKey();
+  public String getAddress(String privateKey) {
+    return Credentials.create(privateKey).getAddress();
+  }
 
-    this.userPKeys = new String[NUM_USERS];
-    this.userAddresses = new String[NUM_USERS];
+  public void createUsers(int numUsers) {
+    this.userPKeys = new String[numUsers];
+    this.userAddresses = new String[numUsers];
     for (int i=0; i<this.userPKeys.length; i++) {
-      this.userPKeys[i] = new KeyPairGen().generateKeyPairGetPrivateKey();
-      this.userAddresses[i] = Credentials.create(this.userPKeys[i]).getAddress();
+      this.userPKeys[i] = createPrivateKey();
+      this.userAddresses[i] = getAddress(this.userPKeys[i]);
     }
+  }
 
-    LOG.info("Set-up MainNet: Deploy ERC20 contracts and give users some tokens");
-    // An entity other than the relayers is the deplyer of the ERC 20s on MainNet.
-    // Relayer 1 is the deployer of the ERC 20s on the Sidechain.
-    String erc20Tok1MainNet = deployErc20Contract(true, TOK1_NAME, TOK1_SYMBOL, TOK1_TOTAL_SUPPLY, bankerPKey);
-    String erc20Tok2MainNet = null;
-    if (TOKEN2) {
-      erc20Tok2MainNet = deployErc20Contract(true, TOK2_NAME, TOK2_SYMBOL, TOK2_TOTAL_SUPPLY, bankerPKey);
+
+  public void createInitialBalances(boolean mainNet, String erc20ContractAddress, String bankerPKey, boolean allSame, int balance) throws Exception {
+    String bcName = mainNet ? "MainNet" : "Sidechain";
+    for (int i = 0; i < this.userAddresses.length; i++) {
+      long startingBalance = allSame ? balance : balance + i;
+      LOG.info("Give user {}: {} of {} contract: {}", this.userAddresses[i], startingBalance, bcName, erc20ContractAddress);
+      transferErc20Tokens(true, erc20ContractAddress, bankerPKey, this.userAddresses[i], startingBalance);
+      BigInteger actualBalance = getBalanceErc20Tokens(true, erc20ContractAddress, this.userPKeys[i]);
+      assertEquals(actualBalance.longValue(), startingBalance);
     }
-    for (int i = 0; i < NUM_USERS; i++) {
-      long startingBalance = USER_TOK_1_BASE_STARTING_BALANCE + i;
-      LOG.info("Give user {}: {} of {}, MainNet contract: {}", this.userAddresses[i], startingBalance, TOK1_NAME, erc20Tok1MainNet);
-      transferErc20Tokens(true, erc20Tok1MainNet, bankerPKey, this.userAddresses[i], startingBalance);
-      BigInteger balance = getBalanceErc20Tokens(true, erc20Tok1MainNet, this.userPKeys[i]);
-      assertEquals(balance.longValue(), startingBalance);
+  }
+
+  public void approveTransferOfTokens(boolean mainNet, String erc20ContractAddress) throws Exception {
+    for (int i = 0; i < this.userAddresses.length; i++) {
+      BigInteger actualBalance = getBalanceErc20Tokens(true, erc20ContractAddress, this.userPKeys[i]);
+      approveErc20Tokens(mainNet, erc20ContractAddress, this.userPKeys[i], transferMainNet, actualBalance.longValue());
     }
-    if (TOKEN2) {
-      for (int i = 0; i < NUM_USERS; i++) {
-        long startingBalance = USER_TOK_2_BASE_STARTING_BALANCE + i;
-        LOG.info("Give user {}: {} of {}, MainNet contract: {}", this.userAddresses[i], startingBalance, TOK2_NAME, erc20Tok2MainNet);
-        transferErc20Tokens(true, erc20Tok2MainNet, bankerPKey, this.userAddresses[i], startingBalance);
-        BigInteger balance = getBalanceErc20Tokens(true, erc20Tok2MainNet, this.userPKeys[i]);
-        assertEquals(balance.longValue(), startingBalance);
-      }
-    }
-
-
-    LOG.info("Deploy ERC20 contracts and Receiver and Transfer contract on Sidechain");
-    // Relayer 1 is the deployer of the ERC 20s on the Sidechain.
-    String erc20Tok1Sidechain = deployErc20Contract(false, TOK1_NAME, TOK1_SYMBOL, TOK1_TOTAL_SUPPLY, relayer1PKey);
-    String erc20Tok2Sidechain = null;
-    if (TOKEN2) {
-      erc20Tok2Sidechain = deployErc20Contract(false, TOK2_NAME, TOK2_SYMBOL, TOK2_TOTAL_SUPPLY, relayer1PKey);
-    }
-    long mainnetSourceTimeLock = 24 * 60 * 60; // 24 hours.
-    long sidechainDestinationTimeLock = 12 * 60 * 60; // 12 hours.
-    long mainnetDestinationTimeLock = 12 * 60 * 60; // 24 hours.
-    long sidechainSourceTimeLock = 24 * 60 * 60; // 12 hours.
-    this.transferSidechain = deployTransferContract(false, relayer1PKey, sidechainSourceTimeLock, sidechainDestinationTimeLock);
-
-    LOG.info("Transfer all tokens on Sidechain to Receiver contract");
-    transferErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, this.transferSidechain, TOK1_TOTAL_SUPPLY);
-    if (TOKEN2) {
-      transferErc20Tokens(false, erc20Tok2Sidechain, relayer1PKey, this.transferSidechain, TOK2_TOTAL_SUPPLY);
-    }
-
-    LOG.info("Deploy Transfer contract on MainNet");
-    this.transferMainNet = deployTransferContract(true, relayer1PKey, mainnetSourceTimeLock, mainnetDestinationTimeLock);
-
-    LOG.info("Add {} and {} to list of authorised ERC 20 contracts", TOK1_NAME, TOK2_NAME);
-    // Always add tokens to receivers first.
-    authoriseErc20TokensOnReceiver(false, transferSidechain, relayer1PKey, erc20Tok1Sidechain, erc20Tok1MainNet);
-    authoriseErc20TokensOnReceiver(true, transferMainNet, relayer1PKey, erc20Tok1MainNet, erc20Tok1Sidechain);
-    authoriseErc20TokensOnTransfer(false, transferSidechain, relayer1PKey, erc20Tok1Sidechain);
-    authoriseErc20TokensOnTransfer(true, transferMainNet, relayer1PKey, erc20Tok1MainNet);
-    if (TOKEN2) {
-      authoriseErc20TokensOnReceiver(false, transferSidechain, relayer1PKey, erc20Tok2Sidechain, erc20Tok2MainNet);
-      authoriseErc20TokensOnReceiver(true, transferMainNet, relayer1PKey, erc20Tok2MainNet, erc20Tok2Sidechain);
-      authoriseErc20TokensOnTransfer(false, transferSidechain, relayer1PKey, erc20Tok2Sidechain);
-      authoriseErc20TokensOnTransfer(true, transferMainNet, relayer1PKey, erc20Tok2MainNet);
-    }
-
-
-    LOG.info("Approve ERC20 transferfrom for Transfer contract on MainNet");
-    for (int i = 0; i < NUM_USERS; i++) {
-      approveErc20Tokens(true, erc20Tok1MainNet, this.userPKeys[i], transferMainNet, USER_TOK_1_BASE_STARTING_BALANCE + i);
-    }
-
-    LOG.info("Writing Relayer config file");
-    writeRelayerConfigFile(true, relayer1PKey, 8080, mainnetSourceTimeLock, "relayer1.config");
-    LOG.info("Launching MainNet to Sidechain Relayer");
-    launchRelayer("relayer1.config");
-//    this.relayerToSidechain.setRelayers(2, 0);
-
-    for (int i = 0; i < NUM_USERS; i++) {
-      int user = i;
-      Executors.newSingleThreadExecutor().execute(new Runnable() {
-        @Override
-        public void run() {
-          String userAddress = userAddresses[user];
-          String userPKey = userPKeys[user];
-          LOG.info("Started thread for user {}: {}", user, userAddress);
-          try {
-            byte[][] preimageSalts = new byte[NUM_TRANFERS][];
-            byte[][] commitments = new byte[NUM_TRANFERS][];
-
-            for (int i = 0; i < NUM_TRANFERS; i++) {
-              BigInteger amountToTransfer = BigInteger.valueOf(i + 1);
-              LOG.info("User {}: New Transfer {} ERC tokens ({}) to Sidechain", userAddress, i + 1, TOK1_NAME);
-              byte[][] result = newTransfer(true, userPKey, erc20Tok1MainNet, amountToTransfer);
-              preimageSalts[i] = result[0];
-              commitments[i] = result[1];
-            }
-
-            for (int i = 0; i < NUM_TRANFERS; i++) {
-              BigInteger amountToTransfer = BigInteger.valueOf(i + 1);
-              // TODO wait for destination confirmations before posting the preimage. Otherwise,
-              // an attacker could reorganise the destination blockchain, removing the transaction with the commitment.
-              // If the user reveals the preimage, the dishonest relayer could use it to cash in on the source chain?
-              waitForHtlcToBePostedToRelayer(false, commitments[i], userPKey);
-
-              LOG.info("User {}: Checking deal matches what was committed to.", userAddress);
-              ReceiverInfo receiverInfo = getDetailsFromReceiver(false, commitments[i], userPKey);
-              LOG.info(" Receiver Info: {}", receiverInfo.toString());
-              if (!amountToTransfer.equals(receiverInfo.getAmount())) {
-                LOG.error(" Transfer Amount did not match: Expected: {}, Actual: {}", amountToTransfer, receiverInfo.getAmount());
-                throw new Exception(" Transfer Amount did not match");
-              }
-              if (!userAddress.equalsIgnoreCase(receiverInfo.getRecipientAddress())) {
-                LOG.error(" Recipient did not match: Expected: {}, Actual: {}", userAddress, receiverInfo.getRecipientAddress());
-                throw new Exception(" Recipient did not match");
-              }
-              if (!erc20Tok1MainNet.equalsIgnoreCase(receiverInfo.getTokenContractOtherBlockchain())) {
-                LOG.error(" Token did not match: Expected: {}, Actual: {}", erc20Tok1MainNet, receiverInfo.getTokenContractOtherBlockchain());
-                throw new Exception(" Token did not match");
-              }
-              if (!receiverInfo.getState().equals(TransferState.OPEN)) {
-                LOG.error(" Unexpected transfer state: Expected: {}, Actual: {}", TransferState.OPEN, receiverInfo.getState());
-                throw new Exception(" Unexpected transfer state");
-              }
-              long now = System.currentTimeMillis() / 1000;
-              if (now > receiverInfo.getTimeLock().longValue()) {
-                LOG.error(" Transfer has timed out: Now: {}, TimeLock: {}", now, receiverInfo.getTimeLock());
-                throw new Exception(" Transfer has timed out");
-              }
-
-              LOG.info(" Balances Before Transfer on Sidechain for Token {}: {}", TOK1_NAME, erc20Tok1Sidechain);
-              LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, transferSidechain));
-              LOG.info("  Relayer1: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey));
-//      LOG.info("  Relayer2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer2PKey));
-              LOG.info("  User2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, userPKey));
-
-              LOG.info("User {}: Posting preimage to Sidechain", userAddress);
-              postPreimage(false, preimageSalts[i], commitments[i], userPKey);
-
-              LOG.info(" Balances After Transfer on Sidechain for Token {}: {}", TOK1_NAME, erc20Tok1Sidechain);
-              LOG.info("  Receiver Contract: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey, transferSidechain));
-              LOG.info("  Relayer1: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer1PKey));
-//      LOG.info("  Relayer2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, relayer2PKey));
-              LOG.info("  User2: {}", getBalanceErc20Tokens(false, erc20Tok1Sidechain, userPKey));
-            }
-
-          } catch (Exception ex) {
-              LOG.error("Error executing for user {}: {}", user, userAddress);
-
-          }
-        }
-      });
-    }
-
-
-
-//
-//    // Complete the transfer.
-//    try {
-//      txr = this.transferContract.finaliseTransferToOtherBlockchain(commitmentBytes, preimageBytes).send();
-//    } catch (TransactionException ex) {
-//      LOG.error(RevertReason.decodeRevertReason(ex.getTransactionReceipt().get().getRevertReason()));
-//      throw ex;
-//    }
-//    if (!txr.isStatusOK()) {
-//      throw new Exception("Status not OK: finaliseTransferToOtherBlockchain");
-//    }
-//
-//    // Check that the transfer contract believes the transfer is completed.
-//    BigInteger transferState = this.transferContract.transferState(commitmentBytes).send();
-//    assertTrue(TransferState.FINALILISED.equals(transferState));
-//
-//    // Check that the balance was transferred in the ERC 20 contract.
-//    BigInteger balance = token1Erc20.balanceOf(transferContractAddress).send();
-//    assertEquals(amountToTransfer, balance);
-//
-//    balance = token1Erc20.balanceOf(this.credentials.getAddress()).send();
-//    assertEquals(TEST_SUPPLY.subtract(amountToTransfer), balance);
 
   }
+
 
 
   public String deployTransferContract(boolean deployOnMainNet, String pKeyOwner, long sourceTimeLock, long destTimeLock) throws Exception {
@@ -430,7 +282,27 @@ public class IntegrationTests {
   }
 
 
-  public void writeRelayerConfigFile(boolean fromMainNetToSidechain, String relayerPKey, int adminPort, long maxTimeLock, String filename) throws IOException {
+  public void configureRelayer(String domainOrIP, boolean fromMainNetToSidechain, String relayerPKey, int adminPort, long maxTimeLock) throws Exception {
+    RelayerConfig conf = createRelayerConfig(fromMainNetToSidechain, relayerPKey, adminPort, maxTimeLock);
+    String serializedConf = new ObjectMapper().writeValueAsString(conf);
+
+    String uriStr = "http://" + domainOrIP + ":" + adminPort + "/conf/all";
+
+    HttpClient client = HttpClient.newHttpClient();
+    HttpRequest request = HttpRequest.newBuilder()
+        .uri(URI.create(uriStr))
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(serializedConf))
+        .build();
+    HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+    if (response.statusCode() != 200) {
+      LOG.error("Configure relayer failed: {}: {}", response.statusCode(), response.body());
+      throw new Exception("Configure Relayer failed");
+    }
+    LOG.info("Successfully configured relayer: {}:{}", domainOrIP, adminPort);
+  }
+
+  public RelayerConfig createRelayerConfig(boolean fromMainNetToSidechain, String relayerPKey, int adminPort, long maxTimeLock) {
     String sourceBcUri = fromMainNetToSidechain ? MAINNET_BLOCKCHAIN_URI : SIDECHAIN_BLOCKCHAIN_URI;
     String sourceTransferContract = fromMainNetToSidechain ? transferMainNet : transferSidechain;
     int sourceBlockPeriod = fromMainNetToSidechain ? MAINNET_BLOCK_PERIOD : SIDECHAIN_BLOCK_PERIOD;
@@ -447,7 +319,7 @@ public class IntegrationTests {
     String destGasStrategy = DynamicGasProvider.Strategy.FREE.toString();
     long destBcId = fromMainNetToSidechain ? Integer.valueOf(SIDECHAIN_BLOCKCHAIN_ID) : Integer.valueOf(MAINNET_BLOCKCHAIN_ID);
 
-    RelayerConfig config = new RelayerConfig(
+    return new RelayerConfig(
         sourceBcUri, sourceTransferContract, sourceBlockPeriod, sourceConfirmations,
         sourceRetries, sourceBcId, relayerPKey, sourceGasStrategy,
         destBcUri, destReceiverContract, destBlockPeriod, destConfirmations,
@@ -455,11 +327,6 @@ public class IntegrationTests {
         maxTimeLock,
         adminPort
     );
-    String result = new ObjectMapper().writeValueAsString(config);
-    File file = new File(filename);
-    FileWriter fw = new FileWriter(file);
-    fw.write(result);
-    fw.close();
   }
 
 
@@ -591,12 +458,5 @@ public class IntegrationTests {
     LOG.info(" Posting preimage successful");
   }
 
-  public static void main(String[] args) throws Exception {
-    LOG.info("Start");
-    try {
-      new IntegrationTests().runTest();
-    } finally {
-      LOG.info("Done");
-    }
-  }
+
 }

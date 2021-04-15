@@ -1,0 +1,17 @@
+{
+    "config": {
+        "chainId": 31,
+        "constantinoplefixblock": 0,
+        "ibft2": {
+            "blockperiodseconds": 2,
+            "epochlength": 30000,
+            "requesttimeoutseconds": 10
+        }
+    },
+    "nonce": "0x0",
+    "timestamp": "0x58ee40ba",
+    "extraData": "0xf83ea00000000000000000000000000000000000000000000000000000000000000000d5949cbd5ead5bb10311fd0a2530d69ea6cc44d9da24808400000000c0",
+    "gasLimit": "0x1fffffffffffff",
+    "difficulty": "0x1",
+    "mixHash": "0x63746963616c2062797a616e74696e65206661756c7420746f6c6572616e6365",
+}

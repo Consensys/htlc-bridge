@@ -25,9 +25,12 @@ import org.web3j.protocol.Web3j;
 import org.web3j.protocol.core.DefaultBlockParameter;
 import org.web3j.protocol.core.methods.response.EthBlockNumber;
 import org.web3j.protocol.http.HttpService;
+import org.web3j.tx.FastRawTransactionManager;
 import org.web3j.tx.RawTransactionManager;
 import org.web3j.tx.TransactionManager;
 import org.web3j.tx.gas.ContractGasProvider;
+import org.web3j.tx.response.PollingTransactionReceiptProcessor;
+import org.web3j.tx.response.TransactionReceiptProcessor;
 
 import java.math.BigInteger;
 import java.util.concurrent.CompletableFuture;
@@ -66,8 +69,10 @@ public abstract class BlockchainObserver {
 
     Credentials sourceCredentials = Credentials.create(sourcePKey);
     Credentials destCredentials = Credentials.create(destPKey);
-    TransactionManager sourceTm = new RawTransactionManager(this.sourceWeb3j, sourceCredentials, sourceBcId, sourceRetries, sourceBlockPeriod);
-    TransactionManager destTm = new RawTransactionManager(this.destWeb3j, destCredentials, destBcId, destRetries, destBlockPeriod);
+    TransactionReceiptProcessor sourceTxrProcessor = new PollingTransactionReceiptProcessor(this.sourceWeb3j, sourceBlockPeriod, sourceRetries);
+    TransactionManager sourceTm = new FastRawTransactionManager(this.sourceWeb3j, sourceCredentials, sourceBcId, sourceTxrProcessor);
+    TransactionReceiptProcessor destTxrProcessor = new PollingTransactionReceiptProcessor(this.destWeb3j, destBlockPeriod, destRetries);
+    TransactionManager destTm = new FastRawTransactionManager(this.destWeb3j, destCredentials, destBcId, destTxrProcessor);
 
     this.srcTransferContract = Erc20HtlcTransfer.load(transferContractAddress, sourceWeb3j, sourceTm, sourceGasProvider);
     this.destTransferContract = Erc20HtlcTransfer.load(receiverContractAddress, destWeb3j, destTm, destGasProvider);

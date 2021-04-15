@@ -31,18 +31,20 @@ public class Relayer extends AbstractVerticle {
   private static final Logger LOG = LogManager.getLogger(Relayer.class);
 
   public SourceBlockchainObserver sourceBlockchainObserver;
-  int sourceBlockPeriod;
+  public int sourceBlockPeriod;
   public DestinationBlockchainObserver destBlockchainObserver;
-  int destBlockPeriod;
+  public int destBlockPeriod;
 
   RestAPI api;
   int port;
+  public RelayerConfig conf;
 
   public Relayer(File configFile) throws Exception {
     this((RelayerConfig) (new ObjectMapper().readerFor(RelayerConfig.class).readValue(configFile)));
   }
 
   public Relayer(RelayerConfig config) throws Exception {
+    this(config.apiPort);
     this.sourceBlockchainObserver = new SourceBlockchainObserver(
         config.sourceBcUri, config.sourceTransferContract, config.sourceBlockPeriod, config.sourceConfirmations,
         config.sourceRelayerPKey, config.sourceRetries, config.sourceBcId, config.sourceGasStrategy,
@@ -57,9 +59,22 @@ public class Relayer extends AbstractVerticle {
         config.destRelayerPKey, config.destRetries, config.destBcId, config.destGasStrategy);
     this.destBlockPeriod = config.destBlockPeriod;
 
-    this.port = config.apiPort;
+    this.conf = config;
+  }
 
+  public Relayer(int port) throws Exception {
+    resetConfig();
+    this.port = port;
     this.api = new RestAPI(this);
+  }
+
+  public void resetConfig() {
+    this.sourceBlockchainObserver = null;
+    this.sourceBlockPeriod = 0;
+    this.destBlockchainObserver = null;
+    this.destBlockPeriod = 0;
+
+    this.conf = new RelayerConfig();
   }
 
   /**
@@ -105,15 +120,39 @@ public class Relayer extends AbstractVerticle {
   public static void main (String[] args) throws Exception {
     System.out.println("Starting Relayer");
     LOG.info("Relayer start-up commenced");
-    if (args.length != 1) {
-      System.out.println("Please provide one parameter: a config file name");
-      return;
+    if (args.length != 2) {
+      LOG.error("Two parameters reqired:");
+      LOG.error(" sh relayer CONF <config file name>");
+      LOG.error(" sh relayer PORT <port number>");
+      System.exit(-1);
+      return; // Seems to be needed to allow static analysis tools to work.
     }
 
-    String filename = args[0];
-    LOG.info("Configuration file: " + filename);
-    File configFile = new File(filename);
-    Relayer relayer = new Relayer(configFile);
+    Relayer relayer;
+    String filenameOrPortOption = args[0];
+    if (filenameOrPortOption.equalsIgnoreCase("CONF")) {
+      String filename = args[1];
+      LOG.info("Configuration file: " + filename);
+      File configFile = new File(filename);
+      relayer = new Relayer(configFile);
+    }
+    else if (filenameOrPortOption.equalsIgnoreCase("PORT")) {
+      int port;
+      try {
+        port = Integer.parseInt(args[1]);
+      } catch (NumberFormatException ex) {
+        LOG.error("Invalid port number: {}", args[1]);
+        System.exit(-1);
+        return; // Seems to be needed to allow static analysis tools to work.
+      }
+      LOG.info("Configuration will be supplied via REST API on port {}", port);
+      relayer = new Relayer(port);
+    }
+    else {
+      LOG.error("Unknown option: " + filenameOrPortOption);
+      System.exit(-1);
+      return; // Seems to be needed to allow static analysis tools to work.
+    }
 
     Vertx vertx = Vertx.vertx();
     vertx.deployVerticle(relayer);
