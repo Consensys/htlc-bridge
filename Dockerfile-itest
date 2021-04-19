@@ -1,13 +1,17 @@
 FROM gradle:jdk11-openj9
+# Install add-apt-repository
+RUN apt-get update && apt-get upgrade -y
+RUN apt-get install -y software-properties-common
+# Install solc
+RUN add-apt-repository ppa:ethereum/ethereum
+RUN apt-get update
+RUN apt-get -y install solc
+# Install web3j
+RUN curl -L get.web3j.io | sh
+ENV PATH "$PATH:/root/.web3j"
+
+# Copy in the source repo
 COPY . /home/gradle/src
-RUN chmod 777 /home/gradle/src/gradlew
-RUN ls -al
+
 WORKDIR /home/gradle/src
 RUN ./gradlew integrationTest --no-daemon
-
-#
-#
-# FROM openjdk:14-alpine
-# COPY . /dev
-# WORKDIR /dev
-# ENTRYPOINT ["gradlew", "integrationTest"]
