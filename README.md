@@ -1,3 +1,9 @@
+**This repo is no longer in use. It contains
+historical information about the HTLC token bridge.
+Please see https://github.com/ConsenSys/gpact for information about the 
+General Purpose Atomic Crosschain Transaction protocol.**
+
+
 # Bi-Directional HTLC based Token Bridge
 
 The repo contains code for a bi-directional Hash Time-Locked Contracts (HTLC) 

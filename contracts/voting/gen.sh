@@ -9,7 +9,7 @@ TESTCONTRACTSDIR=$HERE/src/test/solidity
 OUTPUTDIR=$HERE/src/main/java
 TESTOUTPUTDIR=$HERE/src/test/java
 PACKAGE=net.consensys.htlcbridge.voting.soliditywrappers
-WEB3J=web3j
+WEB3J=../web3j-abi/codegen/build/install/codegen/bin/codegen
 
 
 # compiling one file also compiles its dependendencies. We use overwrite to avoid the related warnings.
